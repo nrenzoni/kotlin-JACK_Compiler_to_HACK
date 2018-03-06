@@ -1,5 +1,5 @@
+
 import java.io.File
-import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -17,7 +17,7 @@ class MyDirectory(val dirName: String): AbstractIterator<MyFile>() {
     override fun computeNext() {
         for (file in File(dirName).walk()) {
             if(file.isFile)
-                super.setNext(MyFile(file.absolutePath))
+                super.setNext(ReadFile(file.absolutePath))
             else {
                 println("DEBUG: $file is a directory")
             }
@@ -27,47 +27,53 @@ class MyDirectory(val dirName: String): AbstractIterator<MyFile>() {
     }
 }
 
-class MyFile(var filename: String) {
+abstract class MyFile(open val filename: String) {
+    var fileContent: String = ""
+        protected set
+    var fileContentLines: MutableList<String> = mutableListOf<String>()
+        protected set
+    var lineCount: Int = 0
+        protected set
+}
+
+// read only file, filename must exist in filesystem already
+class ReadFile(override var filename: String) : MyFile(filename) {
     init {
         filename = Paths.get(filename).toAbsolutePath().normalize().toString()
-        println("DEBUG: constructor for $filename called")
-//        if(!Files.is .isFile(filename))
-//            throw Exception("file: \"$filename\" not found!")
+        if(!Files.exists(Paths.get(filename)))
+            throw Exception("file: \"$filename\" does not exist in filesystem!")
+
+        readInFile()
+        super.lineCount = 1 + fileContentLines.count()
     }
 
-    var fileContent: String = ""
-        private set
-        get() {
-            if (field == "") {
-                field = readInFile()
+    // http://kotlination.com/kotlin/read-file-kotlin (method 1.2)
+    private fun readInFile() {
+        File(filename).bufferedReader().useLines {
+            it.forEach {
+                fileContentLines.add(it)
+                fileContent += it
             }
-            return field
         }
-
-    var lineCount: Int = -1
-        private set
-        get() {
-            if (field == -1) {
-                var newlineCharsCounter = 1
-                for(c in fileContent) {
-                    if (c == '\n') {
-                        newlineCharsCounter++
-                    }
-                }
-                field = newlineCharsCounter
-            }
-            return field
-        }
-
-
-    // http://kotlination.com/kotlin/read-file-kotlin
-    private fun readInFile(): String {
-        val fileStream: InputStream = File(filename).inputStream()
-        return fileStream.bufferedReader().use { it.readText() }
     }
+
+    fun getLine(lineNumber: Int): String = fileContentLines[lineNumber-1]
+
+}
+
+// write file object for only writing to file, no reading
+class WriteFile(override val filename: String) : MyFile(filename) {
+    fun AppendToFile(data: String, addNewLine: Boolean = true) {
+        fileContent += data + '\n'
+        fileContentLines.add(data)
+        lineCount += 1
+        flushToFile()
+    }
+
+    private fun flushToFile() = File(filename).bufferedWriter().use { it.write(fileContent)}
 }
 
 fun main(args: Array<String>) {
-    val f = MyFile("input/hello.in")
+    val f = ReadFile("input/hello.in")
     println(f.lineCount)
 }
