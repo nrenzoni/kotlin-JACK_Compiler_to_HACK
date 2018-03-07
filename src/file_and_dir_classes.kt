@@ -61,7 +61,7 @@ class ReadFile(override var filename: String) : MyFile(filename) {
 
 }
 
-// write file object for only writing to file, no reading
+// for writing to file, no reading
 class WriteFile(override val filename: String) : MyFile(filename) {
     fun AppendToFile(data: String, addNewLine: Boolean = true) {
         fileContent += data + '\n'
