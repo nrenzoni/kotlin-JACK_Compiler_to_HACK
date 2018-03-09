@@ -10,3 +10,7 @@ fun countLines(str: String): Int {
     }
     return count
 }
+
+fun main(args: Array<String>) {
+    countLines("1\n2")
+}

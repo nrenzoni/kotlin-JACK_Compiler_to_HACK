@@ -63,6 +63,14 @@ class ReadFile(override var filename: String) : MyFile(filename) {
 
 // for writing to file, no reading
 class WriteFile(override val filename: String) : MyFile(filename) {
+    init{
+        if(!File(filename).exists()) {
+            val f: Boolean = File( filename).createNewFile()
+            if (!f)
+                throw error("can't create the file")
+        }
+    }
+
     fun AppendToFile(data: String, addNewLine: Boolean = true) {
         fileContent += data + '\n'
         fileContentLines.add(data)
@@ -70,10 +78,19 @@ class WriteFile(override val filename: String) : MyFile(filename) {
         flushToFile()
     }
 
+
     private fun flushToFile() = File(filename).bufferedWriter().use { it.write(fileContent)}
 }
 
 fun main(args: Array<String>) {
     val f = ReadFile("input/hello.in")
     println(f.lineCount)
+    val of=WriteFile("output/out2.txt")
+    of.AppendToFile("hello my name is Avior")
+    of.AppendToFile("hello my name is Avior")
+    of.AppendToFile("hello my name is Avior")
+    val str:String = "output/yoyo"
+    val o=WriteFile(str)
+    //o.AppendToFile("hello my name is Avior")
+
 }

@@ -97,7 +97,11 @@ class HACKCodeGen() {
 
             // Group 2 (temp)
             REGISTER.TEMP -> {
-                appendLineToCode("")
+                //
+                appendLineToCode("@${REGISTER.TEMP}")
+                appendLineToCode("D = A")
+                appendLineToCode("@${popValue}")
+                appendLineToCode("A = D + A")
             }
 
             // Group 3 (static)
