@@ -6,10 +6,10 @@ enum class VM_Command_Type {
     C_ARITHMETIC, C_PUSH, C_POP, C_LABEL, C_GOTO, C_IF, C_FUNCTION, C_RETURN, C_CALL
 }
 
-class Parser(val filename: String) {
+class VMParser(val filename: String) {
     init {
         if (hasMoreCommands())
-            nextCommand()
+            advanceToNextCommand()
     }
 
     private val inputfile: ReadFile = ReadFile(filename)
@@ -19,10 +19,10 @@ class Parser(val filename: String) {
 
     fun hasMoreCommands(): Boolean = (currentLine <= inputfile.lineCount)
 
-    fun nextCommand(): String {
+    fun advanceToNextCommand() {
         currentLine++
-        currentCommand = inputfile.getLine(currentLine)
-        return currentCommand
+        /*currentCommand = inputfile.getLine(currentLine)
+        return currentCommand*/
     }
 
     fun getCurrentCommandType(): VM_Command_Type {
