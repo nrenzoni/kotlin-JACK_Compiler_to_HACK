@@ -3,21 +3,26 @@
  */
 
 enum class REGISTER {
-    LOCAL, ARG, THIS, THAT, TEMP, STATIC, POINTER0, POINTER1
+    LOCAL, ARG, THIS, THAT, TEMP, STATIC, POINTER
 }
 
 enum class MATH_OP {
     ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT
 }
 
-class HACKCodeGen() {
+
+class HACKCodeGen(className: String) {
+
+    protected lateinit var className : String  // needed for static push and pop
+
     init {
+        this.className=className
         initializeHACK()
     }
 
     protected val registerMapping =
             hashMapOf<REGISTER,Int>(REGISTER.LOCAL to 1, REGISTER.ARG to 2, REGISTER.THIS to 3, REGISTER.THAT to 4,
-                    REGISTER.TEMP to 5, REGISTER.STATIC to 16, REGISTER.POINTER0 to 3, REGISTER.POINTER1 to 4)
+                    REGISTER.TEMP to 5, REGISTER.STATIC to 16, REGISTER.POINTER to 3)
 
     protected var stackIndex: Int = 256
     protected var heapIndex: Int  = 2048
@@ -62,7 +67,10 @@ class HACKCodeGen() {
         // decrement SP to point at top of stack value (since SP points at next free spot)
         appendLineToCode("@SP")
         appendLineToCode("M = M - 1")
-        appendLineToCode("D = M")
+        appendLineToCode("A = M")
+        //D=RAM[SP-1]
+        appendLineToCode("D=M")
+
 
         when(register) {
             // Group 1 (local, argument, this, that)
@@ -88,6 +96,8 @@ class HACKCodeGen() {
 
                 // D = RAM[0] (stackIndex)
                 appendLineToCode("@SP")
+
+                /* I think that unneeded because it's already done in lines 68-70
                 appendLineToCode("D = M")
                 // D = stackIndex - 1
                 appendLineToCode("D = D - 1")
@@ -98,6 +108,8 @@ class HACKCodeGen() {
 
                 // A = stackIndex - 1
                 appendLineToCode("A = D")
+                */
+
                 // D = RAM[stackIndex - 1]
                 appendLineToCode("D = M")
 
@@ -122,12 +134,20 @@ class HACKCodeGen() {
 
             // Group 3 (static)
             REGISTER.STATIC -> {
-                appendLineToCode("")
+                //RAM[CLASS_NAME.X]= RAM[SP-1]
+                appendLineToCode("@${className}.${popValue}") // if X =0 and className is the first class it's like to write @16
+                appendLineToCode("M=D")
             }
 
             // Group 4 (pointer 0, pointer 1)
-            REGISTER.POINTER0, REGISTER.POINTER1 -> {
-                appendLineToCode("")
+            REGISTER.POINTER -> {
+                if(regOffset != 0 || regOffset != 1)
+                    throw Exception("Only Pointer 0 or 1")
+                val offset : Int? = registerMapping[REGISTER.POINTER] + regOffset
+                appendLineToCode("@${offset}")
+
+                //RAM[POINTER 0 OR 1] = RAM[SP-1]
+                appendLineToCode("M=D")
             }
         }
 
