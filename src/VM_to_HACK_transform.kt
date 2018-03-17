@@ -3,13 +3,30 @@
  */
 
 enum class REGISTER {
-    LOCAL, ARG, THIS, THAT, TEMP, STATIC, POINTER
+    LOCAL, ARG, THIS, THAT, TEMP, STATIC, POINTER, CONSTANT
 }
 
 enum class MATH_OP {
     ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT
 }
 
+fun extractARITHType(cmd_line: String): MATH_OP {
+    for ( op in MATH_OP.values() ) {
+        if ( cmd_line.contains(Regex("^${op} ", RegexOption.IGNORE_CASE)) ) {
+            return op
+        }
+    }
+    throw Exception("no matching enum found in '${cmd_line}'")
+}
+
+fun extractREGISTER(cmd_line: String): REGISTER {
+    for ( reg in REGISTER.values() ) {
+        if ( cmd_line.contains(Regex("^${reg} ", RegexOption.IGNORE_CASE)) ) {
+            return reg
+        }
+    }
+    throw Exception("no matching register found in '${cmd_line}'")
+}
 
 class HACKCodeGen(className: String) {
 
@@ -37,21 +54,34 @@ class HACKCodeGen(className: String) {
         appendLineToCode("M = D")
     }
 
-    fun pushConstantHACK(number: Int) {
-        // put constant in D
-        appendLineToCode("@${number}")
-        appendLineToCode("D = A")
-        // extract current stack index
-        appendLineToCode("@SP")
-        appendLineToCode("A = M")
-        // push constant onto stack
-        appendLineToCode("M = D")
-        // increment stack pointer
-        appendLineToCode("@SP")
-        appendLineToCode("M = M + 1")
-        stackIndex++
+    fun pushHACK(register: REGISTER, regOffsetORConst: Int) {
 
-        // Group 5 (constant)
+        when (register) {
+
+            REGISTER.CONSTANT -> {
+                // put constant in D
+                appendLineToCode("@${regOffsetORConst}")
+                appendLineToCode("D = A")
+                // extract current stack index
+                appendLineToCode("@SP")
+                appendLineToCode("A = M")
+                // push constant onto stack
+                appendLineToCode("M = D")
+                // increment stack pointer
+                appendLineToCode("@SP")
+                appendLineToCode("M = M + 1")
+            }
+
+            REGISTER.LOCAL -> TODO()
+            REGISTER.ARG -> TODO()
+            REGISTER.THIS -> TODO()
+            REGISTER.THAT -> TODO()
+            REGISTER.TEMP -> TODO()
+            REGISTER.STATIC -> TODO()
+            REGISTER.POINTER -> TODO()
+        }
+
+        stackIndex++
     }
 
     private fun appendLineToCode(hack_op: String) {
@@ -135,7 +165,7 @@ class HACKCodeGen(className: String) {
             // Group 3 (static)
             REGISTER.STATIC -> {
                 //RAM[CLASS_NAME.X]= RAM[SP-1]
-                appendLineToCode("@${className}.${popValue}") // if X =0 and className is the first class it's like to write @16
+                appendLineToCode("@${className}.${regOffset}") // if X =0 and className is the first class it's like to write @16
                 appendLineToCode("M=D")
             }
 
@@ -143,7 +173,7 @@ class HACKCodeGen(className: String) {
             REGISTER.POINTER -> {
                 if(regOffset != 0 || regOffset != 1)
                     throw Exception("Only Pointer 0 or 1")
-                val offset : Int? = registerMapping[REGISTER.POINTER] + regOffset
+                val offset : Int? = registerMapping[REGISTER.POINTER]?.plus(regOffset)
                 appendLineToCode("@${offset}")
 
                 //RAM[POINTER 0 OR 1] = RAM[SP-1]
@@ -155,7 +185,7 @@ class HACKCodeGen(className: String) {
 
     }
 
-    fun mathOpHACK(op_type: MATH_OP, arg1: Int, arg2: Int) {
+    fun mathOpHACK(op_type: MATH_OP) {
 
         when (op_type) {
 

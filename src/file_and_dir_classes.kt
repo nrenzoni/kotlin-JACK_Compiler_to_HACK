@@ -14,12 +14,14 @@ class MyDirectory(val dirName: String): AbstractIterator<MyFile>() {
             throw Exception("directory: \"$dirName\" not found!")
     }
 
+    // custom iterator for returning MyFile objects of files (not directories) in parent directory
     override fun computeNext() {
         for (file in File(dirName).walk()) {
-            if(file.isFile)
-                super.setNext(ReadFile(file.absolutePath))
+            if( file.isFile() )
+                super.setNext( ReadFile(file.absolutePath.toString()) )
             else {
-                println("DEBUG: $file is a directory")
+                println("DEBUG: $file is a directory, continuing to next item in directory")
+                continue
             }
         }
         // finish iterating
