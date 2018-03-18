@@ -62,8 +62,8 @@ class HACKCodeGen(protected var className: String) {
     private fun pushDToAddrsOfSP_helper() {
         // sp points at 2nd to top item; we will push D here
         appendLineToCode("@SP")
-        appendLineToCode("A=M")
-        appendLineToCode("M=D")
+        appendLineToCode("A = M")
+        appendLineToCode("M = D")
     }
 
     fun pushHACK(register: REGISTER, regOffsetORConst: Int) {
@@ -81,23 +81,23 @@ class HACKCodeGen(protected var className: String) {
             REGISTER.LOCAL, REGISTER.ARGUMENT, REGISTER.THIS, REGISTER.THAT -> {
                 //D=M=RAM[RAM[register]+regoffset]
                 appendLineToCode("@${regIndex}")
-                appendLineToCode("D=M")
+                appendLineToCode("D = M")
                 appendLineToCode("@${regOffsetORConst}")
-                appendLineToCode("A=D+A")
-                appendLineToCode("D=M")
+                appendLineToCode("A = D + A")
+                appendLineToCode("D = M")
             }
 
             REGISTER.TEMP -> {
                 //D=RAM[TEMP+X]
                 val offset = regIndex?.plus(regOffsetORConst)
                 appendLineToCode("@${offset}")
-                appendLineToCode("D=M")
+                appendLineToCode("D = M")
             }
 
             REGISTER.STATIC -> {
                 //D=RAM[CLASS.X]
                 appendLineToCode("@${className}.${regOffsetORConst}")
-                appendLineToCode("D=M")
+                appendLineToCode("D = M")
             }
 
             REGISTER.POINTER->{
@@ -106,7 +106,7 @@ class HACKCodeGen(protected var className: String) {
                 //D=RAM[regIndex+regoffset]
                 val offset = regIndex?.plus(regOffsetORConst)
                 appendLineToCode("@${offset}")
-                appendLineToCode("D=M")
+                appendLineToCode("D = M")
             }
         }
 
@@ -128,7 +128,7 @@ class HACKCodeGen(protected var className: String) {
         appendLineToCode("M = M - 1")
         appendLineToCode("A = M")
         //D=RAM[SP-1]
-        appendLineToCode("D=M")
+        appendLineToCode("D = M")
 
 
         when(register) {
@@ -139,10 +139,10 @@ class HACKCodeGen(protected var className: String) {
                 appendLineToCode("A = M")
                 // A = RAM[regIndex] + regOffset
                 for(i in 1..regOffset)
-                    appendLineToCode("A=A+1")
+                    appendLineToCode("A = A + 1")
 
                 // RAM[ RAM[regIndex] + regOffset ] =RAM[SP-1]
-                appendLineToCode("M=D")
+                appendLineToCode("M = D")
             }
 
             // Group 2 (temp)
@@ -160,7 +160,7 @@ class HACKCodeGen(protected var className: String) {
             REGISTER.STATIC -> {
                 //RAM[CLASS_NAME.X]= RAM[SP-1]
                 appendLineToCode("@${className}.${regOffset}") // if X =0 and className is the first class it's like to write @16
-                appendLineToCode("M=D")
+                appendLineToCode("M = D")
             }
 
             // Group 4 (pointer 0, pointer 1)
@@ -171,7 +171,7 @@ class HACKCodeGen(protected var className: String) {
                 appendLineToCode("@${offset}")
 
                 //RAM[POINTER 0 OR 1] = RAM[SP-1]
-                appendLineToCode("M=D")
+                appendLineToCode("M = D")
             }
         }
 
@@ -191,41 +191,41 @@ class HACKCodeGen(protected var className: String) {
 
         appendLineToCode("@SP")
         // A = address of top of stack item
-        appendLineToCode("A=M-1")
+        appendLineToCode("A = M - 1")
         // D = value at top of stack
-        appendLineToCode("D=M")
+        appendLineToCode("D = M")
 
         when(op_type) {
-            MATH_OP.NEG -> appendLineToCode("D=-D")
-            MATH_OP.NOT -> appendLineToCode("D=!D")
+            MATH_OP.NEG -> appendLineToCode("D = -D")
+            MATH_OP.NOT -> appendLineToCode("D = !D")
             else -> throw Exception("unaryMathOpHACK() can only process a unary math operation")
         }
 
-        appendLineToCode("M=D")
+        appendLineToCode("M = D")
     }
 
     private fun binaryMathOpHACK(op_type: MATH_OP) {
 
         appendLineToCode("@SP")
         // sp-- (to point at value on top of stack address)
-        appendLineToCode("M=M-1")
+        appendLineToCode("M = M - 1")
         // A = stack address
-        appendLineToCode("A=M")
+        appendLineToCode("A = M")
         // D = value at top of stack
-        appendLineToCode("D=M")
+        appendLineToCode("D = M")
         appendLineToCode("@SP")
         // sp-- (to point at 2nd to top of stack address)
-        appendLineToCode("M=M-1")
+        appendLineToCode("M = M - 1")
         // A = address of 2nd to top of stack
-        appendLineToCode("A=M")
+        appendLineToCode("A = M")
 
         // D holds top of stack value, A holds 2nd to top address
 
         when(op_type) {
-            MATH_OP.ADD -> appendLineToCode("D=D+M")
-            MATH_OP.SUB -> appendLineToCode("D=D-M")
-            MATH_OP.AND -> appendLineToCode("D=D&M")
-            MATH_OP.OR -> appendLineToCode("D=D|M")
+            MATH_OP.ADD -> appendLineToCode("D = D + M")
+            MATH_OP.SUB -> appendLineToCode("D = D - M")
+            MATH_OP.AND -> appendLineToCode("D = D & M")
+            MATH_OP.OR -> appendLineToCode("D = D | M")
             else -> throw Exception("binaryMathOpHACK() can only process a binary math operation")
         }
 
@@ -233,7 +233,7 @@ class HACKCodeGen(protected var className: String) {
         pushDToAddrsOfSP_helper()
         // sp++ (sp should point at next free space)
         appendLineToCode("@SP")
-        appendLineToCode("M=M+1")
+        appendLineToCode("M = M + 1")
 
         // stackIndex goes down by 1 after binary math op since 2 pops of operands and 1 push of result
         stackIndex--
@@ -246,40 +246,40 @@ class HACKCodeGen(protected var className: String) {
 
         appendLineToCode("@SP")
         // sp-- (to point at value on top of stack address)
-        appendLineToCode("M=M-1")
+        appendLineToCode("M = M - 1")
         // A = stack address
-        appendLineToCode("A=M")
+        appendLineToCode("A = M")
         // D = value at top of stack
-        appendLineToCode("D=M")
+        appendLineToCode("D = M")
         appendLineToCode("@SP")
         // sp-- (to point at 2nd to top of stack address)
-        appendLineToCode("M=M-1")
+        appendLineToCode("M = M - 1")
         // A = address of 2nd to top of stack
-        appendLineToCode("A=M")
+        appendLineToCode("A = M")
 
         // D = ( top of stack value ) - ( 2nd to last value on stack )
-        appendLineToCode("D=D-M")
+        appendLineToCode("D = D - M")
 
         // A = true condition label; will push 1 to stack. otherwise 0 pushed to stack
         appendLineToCode("@CMP_TRUE.${lab_true}")
 
         when(op_type) {
-            MATH_OP.EQ -> appendLineToCode("D;JMP")
-            MATH_OP.GT -> appendLineToCode("D;JGT")
-            MATH_OP.LT -> appendLineToCode("D;JLT")
+            MATH_OP.EQ -> appendLineToCode("D; JMP")
+            MATH_OP.GT -> appendLineToCode("D; JGT")
+            MATH_OP.LT -> appendLineToCode("D; JLT")
             else       -> throw Exception("logicOpHACK() can only process a logical operation")
         }
 
         // if code flow arrives here, cmp operation is false; push 0 to stack
-        appendLineToCode("D=0")
+        appendLineToCode("D = 0")
         pushDToAddrsOfSP_helper()
         // jmp to end of routine
         appendLineToCode("@CMP_END.${lab_end}")
-        appendLineToCode("0;JMP")
+        appendLineToCode("0; JMP")
 
-        // true condition branch; push 1 to stack
+        // true condition branch; push -1 to stack
         appendLineToCode("(CMP_TRUE.${lab_true})")
-        appendLineToCode("D=1")
+        appendLineToCode("D = -1")
         pushDToAddrsOfSP_helper()
 
 
@@ -287,7 +287,7 @@ class HACKCodeGen(protected var className: String) {
         appendLineToCode("(CMP_END.${lab_end})")
         // increment sp to point to next free stack slot
         appendLineToCode("@SP")
-        appendLineToCode("M=M+1")
+        appendLineToCode("M = M + 1")
 
         // 2 pops, 1 push
         stackIndex--
