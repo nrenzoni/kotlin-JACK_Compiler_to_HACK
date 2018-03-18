@@ -21,19 +21,17 @@ fun extractARITHType(cmd_line: String): MATH_OP {
 
 fun extractREGISTER(cmd_line: String): REGISTER {
     for ( reg in REGISTER.values() ) {
-        if ( cmd_line.contains(Regex("^${reg} ", RegexOption.IGNORE_CASE)) ) {
+        if ( cmd_line.contains(Regex("${reg} ", RegexOption.IGNORE_CASE)) ) {
             return reg
         }
     }
     throw Exception("no matching register found in '${cmd_line}'")
 }
 
-class HACKCodeGen(className: String) {
-
-    protected lateinit var className : String  // needed for static push and pop
+class HACKCodeGen(protected var className: String) {
+    // classname needed for static push and pop
 
     init {
-        this.className=className
         initializeHACK()
     }
 
@@ -46,12 +44,26 @@ class HACKCodeGen(className: String) {
     var code: String = ""
         private set
 
+    protected var labelCounter = 0
+
+    private fun appendLineToCode(hack_op: String) {
+        code += hack_op + "\n"
+    }
+
     fun initializeHACK() {
         // load initial stack Index value in SP
         appendLineToCode("@${stackIndex}")
         appendLineToCode("D = A")
         appendLineToCode("@SP")
         appendLineToCode("M = D")
+    }
+
+    private fun pushDToAddrsOfSP_helper() {
+        // sp points at 2nd to top item; we will push D here
+        appendLineToCode("@SP")
+        // A = address of 2nd to top item
+        appendLineToCode("A=M")
+        appendLineToCode("M=D")
     }
 
     fun pushHACK(register: REGISTER, regOffsetORConst: Int) {
@@ -82,10 +94,6 @@ class HACKCodeGen(className: String) {
         }
 
         stackIndex++
-    }
-
-    private fun appendLineToCode(hack_op: String) {
-        code += hack_op + "\n"
     }
 
     fun popHACK(register: REGISTER, regOffset: Int) {
@@ -186,42 +194,118 @@ class HACKCodeGen(className: String) {
     }
 
     fun mathOpHACK(op_type: MATH_OP) {
-
         when (op_type) {
-
-            MATH_OP.ADD -> {
-                appendLineToCode("@SP")
-                // sp-- (to point at value on top of stack address)
-                appendLineToCode("M = M - 1")
-                // A = stack address
-                appendLineToCode("A = M")
-                // D = value at top of stack
-                appendLineToCode("D = M")
-                appendLineToCode("@SP")
-                // sp-- (to point at 2nd to top of stack address)
-                appendLineToCode("M = M - 1")
-                // A = address of 2nd to top of stack
-                appendLineToCode("A = M")
-                // add two top of stack values
-                appendLineToCode("D = D + M")
-                // push result to top of stack
-                appendLineToCode("@SP")
-                appendLineToCode("M = D")
-                // sp++ (sp should point at next free space)
-                appendLineToCode("M = M + 1")
-
-                // stackIndex goes down by 1 when adding since 2 pops of operands and 1 push of operator
-                stackIndex--
-            }
-
-            MATH_OP.SUB -> TODO()
-            MATH_OP.NEG -> TODO()
-            MATH_OP.EQ -> TODO()
-            MATH_OP.GT -> TODO()
-            MATH_OP.LT -> TODO()
-            MATH_OP.AND -> TODO()
-            MATH_OP.OR -> TODO()
-            MATH_OP.NOT -> TODO()
+            MATH_OP.ADD, MATH_OP.SUB, MATH_OP.AND, MATH_OP.OR -> binaryMathOpHACK(op_type)
+            MATH_OP.NEG, MATH_OP.NOT                          -> unaryMathOpHACK(op_type)
+            MATH_OP.EQ, MATH_OP.GT, MATH_OP.LT                -> logicOpHACK(op_type)
         }
+    }
+
+    private fun unaryMathOpHACK(op_type: MATH_OP) {
+
+        appendLineToCode("@SP")
+        // A = address of top of stack item
+        appendLineToCode("A=M-1")
+        // D = value at top of stack
+        appendLineToCode("D=M")
+
+        when(op_type) {
+            MATH_OP.NEG -> appendLineToCode("D=-D")
+            MATH_OP.NOT -> appendLineToCode("D=!D")
+            else -> throw Exception("unaryMathOpHACK() can only process a unary math operation")
+        }
+
+        appendLineToCode("M=D")
+    }
+
+    private fun binaryMathOpHACK(op_type: MATH_OP) {
+
+        appendLineToCode("@SP")
+        // sp-- (to point at value on top of stack address)
+        appendLineToCode("M=M-1")
+        // A = stack address
+        appendLineToCode("A=M")
+        // D = value at top of stack
+        appendLineToCode("D=M")
+        appendLineToCode("@SP")
+        // sp-- (to point at 2nd to top of stack address)
+        appendLineToCode("M=M-1")
+        // A = address of 2nd to top of stack
+        appendLineToCode("A=M")
+
+        // D holds last pushed value, A holds 2nd to last pushed value
+
+        when(op_type) {
+            MATH_OP.ADD -> appendLineToCode("D=D+M")
+            MATH_OP.SUB -> appendLineToCode("D=D-M")
+            MATH_OP.AND -> appendLineToCode("D=D&M")
+            MATH_OP.OR -> appendLineToCode("D=D|M")
+            else -> throw Exception("binaryMathOpHACK() can only process a binary math operation")
+        }
+
+        // push result to top of stack
+        pushDToAddrsOfSP_helper()
+        // sp++ (sp should point at next free space)
+        appendLineToCode("@SP")
+        appendLineToCode("M=M+1")
+
+        // stackIndex goes down by 1 after binary math op since 2 pops of operands and 1 push of result
+        stackIndex--
+    }
+
+    private fun logicOpHACK(op_type: MATH_OP) {
+
+        val lab_true = labelCounter++
+        val lab_end = labelCounter++
+
+        appendLineToCode("@SP")
+        // sp-- (to point at value on top of stack address)
+        appendLineToCode("M=M-1")
+        // A = stack address
+        appendLineToCode("A=M")
+        // D = value at top of stack
+        appendLineToCode("D=M")
+        appendLineToCode("@SP")
+        // sp-- (to point at 2nd to top of stack address)
+        appendLineToCode("M=M-1")
+        // A = address of 2nd to top of stack
+        appendLineToCode("A=M")
+
+        // D = ( 2nd to last pushed value ) - ( last pushed value )
+        appendLineToCode("D=A-D")
+
+        // A = true condition label; will push 1 to stack. otherwise 0 pushed to stack
+        appendLineToCode("@CMP_TRUE.${lab_true}")
+
+        when(op_type) {
+            MATH_OP.EQ -> appendLineToCode("D;JMP")
+            MATH_OP.GT -> appendLineToCode("D;JGT")
+            MATH_OP.LT -> appendLineToCode("D;JLT")
+            else       -> throw Exception("logicOpHACK() can only process a logical operation")
+        }
+
+        // if code flow arrives here, cmp operation is false; push 0 to stack
+        appendLineToCode("@0")
+        appendLineToCode("D=A")
+        pushDToAddrsOfSP_helper()
+        // jmp to end of routine
+        appendLineToCode("@CMP_END.${lab_end}")
+        appendLineToCode("0;JMP")
+
+        // true condition branch; push 1 to stack
+        appendLineToCode("(CMP_TRUE.${lab_true})")
+        appendLineToCode("@1")
+        appendLineToCode("D=A")
+        pushDToAddrsOfSP_helper()
+
+
+        // both branch flows end up here
+        appendLineToCode("(CMP_END.${lab_end})")
+        // increment sp to point to next free stack slot
+        appendLineToCode("@SP")
+        appendLineToCode("M=M+1")
+
+        // 2 pops, 1 push
+        stackIndex--
     }
 }
