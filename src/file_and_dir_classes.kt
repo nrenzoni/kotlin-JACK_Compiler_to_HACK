@@ -58,6 +58,7 @@ class ReadFile(override var filename: String) : MyFile(filename) {
         }
     }
 
+    // line counting starts at 1
     fun getLine(lineNumber: Int): String = fileContentLines[lineNumber-1]
 
 }

@@ -57,21 +57,21 @@ class VMToHACKTranslator(vmFile: ReadFile) {
     }
 }
 
-fun usage(filename: String) {
-    println("usage: ${filename} <VM file / directory>")
+fun printUsage() {
+    println("usage: filename <VM file / directory>")
     exitProcess(1)
 }
 
 fun main(args: Array<String>) {
     // parse cmd line args, first arg should be either .VM file name or directory name containing .VM files
 
-    if(args.size < 2) {
-       usage(args[0])
+    if(args.isEmpty()) {
+       printUsage()
     }
 
     when {
-        File(args[1]).isDirectory() -> {
-            val myDir = MyDirectory(args[1])
+        File(args[0]).isDirectory() -> {
+            val myDir = MyDirectory(args[0])
 
             // process all *.vm files in directory and generate corresponding .asm files accordingly
             for ( vmFile: MyFile in myDir ) {
@@ -84,14 +84,14 @@ fun main(args: Array<String>) {
         }
 
         // arg1 is file
-        File(args[1]).isFile() -> {
-            val vmFile = ReadFile(args[1])
+        File(args[0]).isFile() -> {
+            val vmFile = ReadFile(args[0])
             val translator = VMToHACKTranslator(vmFile)
             translator.translate()
             translator.saveASM()
         }
 
         // arg1 isn't file  or directory
-        else -> usage(args[0])
+        else -> printUsage()
     }
 }

@@ -7,17 +7,16 @@ enum class VM_Command_Type {
 }
 
 class VMParser(val filename: String) {
-    init {
-        if (hasMoreCommands())
-            advanceToNextCommand()
-    }
 
     private val inputfile: ReadFile = ReadFile(filename)
-    private var currentLine: Int = 0
-    var currentCommand: String = ""
+    private var currentLine: Int = 1
+    var currentCommand: String = inputfile.getLine(1)
+        get() {
+            return inputfile.getLine(currentLine)
+        }
         private set
 
-    fun hasMoreCommands(): Boolean = (currentLine <= inputfile.lineCount)
+    fun hasMoreCommands(): Boolean = (currentLine < inputfile.lineCount)
 
     fun advanceToNextCommand() {
         currentLine++
@@ -27,12 +26,13 @@ class VMParser(val filename: String) {
 
     fun getCurrentCommandType(): VM_Command_Type {
         return when {
-            currentCommand.contains(Regex("^(add|sub|neg|eq|gt|lt|and|or|not) ", RegexOption.IGNORE_CASE)) ->
+            currentCommand.contains(Regex("^(add|sub|neg|eq|gt|lt|and|or|not)", RegexOption.IGNORE_CASE)) ->
                 VM_Command_Type.C_ARITHMETIC
             currentCommand.contains(Regex("^push ", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_PUSH
             currentCommand.contains(Regex("^pop", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_POP
-            currentCommand.contains(Regex("^// ")) -> VM_Command_Type.COMMENT
-            else -> throw Exception("parsing error on ${currentCommand}")
+            currentCommand.contains(Regex("^//")) || currentCommand.isBlank()
+            -> VM_Command_Type.COMMENT
+            else -> throw Exception("parsing error on '${currentCommand}'")
         }
     }
 

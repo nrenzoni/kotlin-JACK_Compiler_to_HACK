@@ -12,7 +12,7 @@ enum class MATH_OP {
 
 fun extractARITHType(cmd_line: String): MATH_OP {
     for ( op in MATH_OP.values() ) {
-        if ( cmd_line.contains(Regex("^${op} ", RegexOption.IGNORE_CASE)) ) {
+        if ( cmd_line.contains(Regex("^${op}", RegexOption.IGNORE_CASE)) ) {
             return op
         }
     }
@@ -31,10 +31,6 @@ fun extractREGISTER(cmd_line: String): REGISTER {
 class HACKCodeGen(protected var className: String) {
     // classname needed for static push and pop
 
-    init {
-        initializeHACK()
-    }
-
     protected val registerMapping =
             hashMapOf<REGISTER,Int>(REGISTER.LOCAL to 1, REGISTER.ARGUMENT to 2, REGISTER.THIS to 3, REGISTER.THAT to 4,
                     REGISTER.TEMP to 5, REGISTER.STATIC to 16, REGISTER.POINTER to 3)
@@ -43,6 +39,10 @@ class HACKCodeGen(protected var className: String) {
     protected var heapIndex: Int  = 2048
     var code: String = ""
         private set
+
+    init {
+        initializeHACK()
+    }
 
     protected var labelCounter = 0
 
@@ -68,31 +68,52 @@ class HACKCodeGen(protected var className: String) {
 
     fun pushHACK(register: REGISTER, regOffsetORConst: Int) {
 
+        val regIndex = registerMapping[register]
+
         when (register) {
 
             REGISTER.CONSTANT -> {
                 // put constant in D
                 appendLineToCode("@${regOffsetORConst}")
                 appendLineToCode("D = A")
-                // extract current stack index
-                appendLineToCode("@SP")
-                appendLineToCode("A = M")
-                // push constant onto stack
-                appendLineToCode("M = D")
-                // increment stack pointer
-                appendLineToCode("@SP")
-                appendLineToCode("M = M + 1")
             }
 
-            REGISTER.LOCAL -> TODO()
-            REGISTER.ARGUMENT -> TODO()
-            REGISTER.THIS -> TODO()
-            REGISTER.THAT -> TODO()
-            REGISTER.TEMP -> TODO()
-            REGISTER.STATIC -> TODO()
-            REGISTER.POINTER -> TODO()
+            REGISTER.LOCAL, REGISTER.ARGUMENT, REGISTER.THIS, REGISTER.THAT -> {
+                //D=M=RAM[RAM[register]+regoffset]
+                appendLineToCode("@${regIndex}")
+                appendLineToCode("D=M")
+                appendLineToCode("@${regOffsetORConst}")
+                appendLineToCode("A=D+A")
+                appendLineToCode("D=M")
+            }
+
+            REGISTER.TEMP -> {
+                //D=RAM[TEMP+X]
+                val offset = regIndex?.plus(regOffsetORConst)
+                appendLineToCode("@${offset}")
+                appendLineToCode("D=M")
+            }
+
+            REGISTER.STATIC -> {
+                //D=RAM[CLASS.X]
+                appendLineToCode("@${className}.${regOffsetORConst}")
+                appendLineToCode("D=M")
+            }
+
+            REGISTER.POINTER->{
+                if(regOffsetORConst != 0 || regOffsetORConst != 1)
+                    throw Exception("Only Pointer 0 or 1")
+                //D=RAM[regIndex+regoffset]
+                val offset = regIndex?.plus(regOffsetORConst)
+                appendLineToCode("@${offset}")
+                appendLineToCode("D=M")
+            }
         }
 
+        pushDToAddrsOfSP_helper()
+        // increment stack pointer
+        appendLineToCode("@SP")
+        appendLineToCode("M = M + 1")
         stackIndex++
     }
 
@@ -113,50 +134,15 @@ class HACKCodeGen(protected var className: String) {
         when(register) {
             // Group 1 (local, argument, this, that)
             REGISTER.LOCAL, REGISTER.ARGUMENT, REGISTER.THIS, REGISTER.THAT -> {
-                // D = RAM[regIndex]
+                // A = RAM[regIndex]
                 appendLineToCode("@${regIndex}")
-                appendLineToCode("D = M")
-                // A = regOffset
-                appendLineToCode("@${regOffset}")
-                // A = RAM[regIndex] + regOffset
-                appendLineToCode("A = D + A")
-                // D = RAM[ RAM[regIndex] + regOffset ]
-                appendLineToCode("D = M")
-
-                // save RAM[ RAM[regIndex] + regOffset ] to temp memory so that D and A are free to use
-
-                // temp[0] =  RAM[ RAM[regIndex] + regOffset ]
-                val tempReg: Int? = registerMapping[REGISTER.TEMP] ?: throw Exception("temp reg is null")
-                appendLineToCode("@${tempReg}")
-                appendLineToCode("M = D")
-
-                // decrement stack before popping, since top of stack points to next available slot
-
-                // D = RAM[0] (stackIndex)
-                appendLineToCode("@SP")
-
-                /* I think that unneeded because it's already done in lines 68-70
-                appendLineToCode("D = M")
-                // D = stackIndex - 1
-                appendLineToCode("D = D - 1")
-                // RAM[0] = stackIndex - 1
-                appendLineToCode("M = D")
-
-                // D = value on top of stack
-
-                // A = stackIndex - 1
-                appendLineToCode("A = D")
-                */
-
-                // D = RAM[stackIndex - 1]
-                appendLineToCode("D = M")
-
-                // A = RAM[ RAM[regIndex] + regOffset ]   ( from RAM[temp0] )
-                appendLineToCode("@${REGISTER.TEMP}")
                 appendLineToCode("A = M")
+                // A = RAM[regIndex] + regOffset
+                for(i in 1..regOffset)
+                    appendLineToCode("A=A+1")
 
-                // RAM[ RAM[regIndex] + regOffset ] = RAM[stackIndex - 1]
-                appendLineToCode("M = D")
+                // RAM[ RAM[regIndex] + regOffset ] =RAM[SP-1]
+                appendLineToCode("M=D")
             }
 
             // Group 2 (temp)
@@ -255,7 +241,7 @@ class HACKCodeGen(protected var className: String) {
 
     private fun logicOpHACK(op_type: MATH_OP) {
 
-        val lab_true = labelCounter++
+        val lab_true = labelCounter
         val lab_end = labelCounter++
 
         appendLineToCode("@SP")
