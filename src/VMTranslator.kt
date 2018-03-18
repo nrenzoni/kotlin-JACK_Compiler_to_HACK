@@ -6,19 +6,24 @@ import kotlin.system.exitProcess
  */
 
 class VMToHACKTranslator(vmFile: ReadFile) {
-    protected val vm_code_gen = HACKCodeGen(vmFile.filename)
     protected val vm_parser = VMParser(vmFile.filename)
 
     // file name without extension
-    protected val filename_base: String
+    protected val filename_no_ext: String
+    protected val filename_no_ext_no_dir: String
 
     init {
         val filename_split = vmFile.filename.split(".", limit = 2)
         if (! filename_split[1].contains(Regex("vm", RegexOption.IGNORE_CASE))) {
             throw Exception("cannot parse a non vm file")
         }
-        filename_base = filename_split[0]
+        filename_no_ext = filename_split[0]
+
+        val tmp = filename_no_ext.split("\\")
+        filename_no_ext_no_dir = tmp[tmp.size-1]
     }
+
+    protected val vm_code_gen = HACKCodeGen(filename_no_ext_no_dir)
 
     fun translate() {
 
@@ -52,7 +57,7 @@ class VMToHACKTranslator(vmFile: ReadFile) {
     }
 
     fun saveASM() {
-        val outputFile = WriteFile("${filename_base}.asm")
+        val outputFile = WriteFile("${filename_no_ext}.asm")
         outputFile.appendToFile(vm_code_gen.code)
     }
 }

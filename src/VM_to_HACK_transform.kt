@@ -96,12 +96,12 @@ class HACKCodeGen(protected var className: String) {
 
             REGISTER.STATIC -> {
                 //D=RAM[CLASS.X]
-                appendLineToCode("@${className}.${regOffsetORConst}")
+                appendLineToCode("@${className}_${regOffsetORConst}")
                 appendLineToCode("D = M")
             }
 
             REGISTER.POINTER->{
-                if(regOffsetORConst != 0 || regOffsetORConst != 1)
+                if(regOffsetORConst != 0 && regOffsetORConst != 1)
                     throw Exception("Only Pointer 0 or 1")
                 //D=RAM[regIndex+regoffset]
                 val offset = regIndex?.plus(regOffsetORConst)
@@ -131,12 +131,15 @@ class HACKCodeGen(protected var className: String) {
         appendLineToCode("D = M")
 
 
-        when(register) {
+        when (register) {
             // Group 1 (local, argument, this, that)
             REGISTER.LOCAL, REGISTER.ARGUMENT, REGISTER.THIS, REGISTER.THAT -> {
                 // A = RAM[regIndex]
                 appendLineToCode("@${regIndex}")
                 appendLineToCode("A = M")
+
+
+
                 // A = RAM[regIndex] + regOffset
                 for(i in 1..regOffset)
                     appendLineToCode("A = A + 1")
@@ -159,13 +162,14 @@ class HACKCodeGen(protected var className: String) {
             // Group 3 (static)
             REGISTER.STATIC -> {
                 //RAM[CLASS_NAME.X]= RAM[SP-1]
-                appendLineToCode("@${className}.${regOffset}") // if X =0 and className is the first class it's like to write @16
+                appendLineToCode("@${className}_${regOffset}") // if X = 0 and className is the first class it's
+                // like to write @16
                 appendLineToCode("M = D")
             }
 
             // Group 4 (pointer 0, pointer 1)
             REGISTER.POINTER -> {
-                if(regOffset != 0 || regOffset != 1)
+                if(regOffset != 0 && regOffset != 1)
                     throw Exception("Only Pointer 0 or 1")
                 val offset : Int? = registerMapping[REGISTER.POINTER]?.plus(regOffset)
                 appendLineToCode("@${offset}")
@@ -183,7 +187,7 @@ class HACKCodeGen(protected var className: String) {
         when (op_type) {
             MATH_OP.ADD, MATH_OP.SUB, MATH_OP.AND, MATH_OP.OR -> binaryMathOpHACK(op_type)
             MATH_OP.NEG, MATH_OP.NOT                          -> unaryMathOpHACK(op_type)
-            MATH_OP.EQ, MATH_OP.GT, MATH_OP.LT                -> logicOpHACK(op_type)
+            MATH_OP.EQ, MATH_OP.GT, MATH_OP.LT                -> cmpOpHACK(op_type)
         }
     }
 
@@ -223,7 +227,7 @@ class HACKCodeGen(protected var className: String) {
 
         when(op_type) {
             MATH_OP.ADD -> appendLineToCode("D = D + M")
-            MATH_OP.SUB -> appendLineToCode("D = D - M")
+            MATH_OP.SUB -> appendLineToCode("D = M - D")
             MATH_OP.AND -> appendLineToCode("D = D & M")
             MATH_OP.OR -> appendLineToCode("D = D | M")
             else -> throw Exception("binaryMathOpHACK() can only process a binary math operation")
@@ -239,7 +243,7 @@ class HACKCodeGen(protected var className: String) {
         stackIndex--
     }
 
-    private fun logicOpHACK(op_type: MATH_OP) {
+    private fun cmpOpHACK(op_type: MATH_OP) {
 
         val lab_true = labelCounter
         val lab_end = labelCounter++
@@ -257,34 +261,34 @@ class HACKCodeGen(protected var className: String) {
         // A = address of 2nd to top of stack
         appendLineToCode("A = M")
 
-        // D = ( top of stack value ) - ( 2nd to last value on stack )
-        appendLineToCode("D = D - M")
+        // D = ( 2nd to last value on stack ) - ( top of stack value )
+        appendLineToCode("D = M - D")
 
         // A = true condition label; will push 1 to stack. otherwise 0 pushed to stack
-        appendLineToCode("@CMP_TRUE.${lab_true}")
+        appendLineToCode("@CMP_TRUE_${lab_true}")
 
         when(op_type) {
-            MATH_OP.EQ -> appendLineToCode("D; JMP")
+            MATH_OP.EQ -> appendLineToCode("D; JEQ")
             MATH_OP.GT -> appendLineToCode("D; JGT")
             MATH_OP.LT -> appendLineToCode("D; JLT")
-            else       -> throw Exception("logicOpHACK() can only process a logical operation")
+            else       -> throw Exception("cmpOpHACK() can only process a logical operation")
         }
 
         // if code flow arrives here, cmp operation is false; push 0 to stack
         appendLineToCode("D = 0")
         pushDToAddrsOfSP_helper()
         // jmp to end of routine
-        appendLineToCode("@CMP_END.${lab_end}")
+        appendLineToCode("@CMP_END_${lab_end}")
         appendLineToCode("0; JMP")
 
         // true condition branch; push -1 to stack
-        appendLineToCode("(CMP_TRUE.${lab_true})")
+        appendLineToCode("(CMP_TRUE_${lab_true})")
         appendLineToCode("D = -1")
         pushDToAddrsOfSP_helper()
 
 
         // both branch flows end up here
-        appendLineToCode("(CMP_END.${lab_end})")
+        appendLineToCode("(CMP_END_${lab_end})")
         // increment sp to point to next free stack slot
         appendLineToCode("@SP")
         appendLineToCode("M = M + 1")
