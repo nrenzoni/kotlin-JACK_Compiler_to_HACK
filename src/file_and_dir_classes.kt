@@ -1,4 +1,3 @@
-
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -73,11 +72,11 @@ class WriteFile(override val filename: String) : MyFile(filename) {
         }
     }
 
-    fun AppendToFile(data: String, addNewLine: Boolean = true) {
+    fun appendToFile(data: String, addNewLine: Boolean = true) {
         fileContent += data + '\n'
         fileContentLines.add(data)
         lineCount += 1
-        flushToFile()
+        flushToFile() // performs write
     }
 
 
@@ -88,11 +87,11 @@ fun main(args: Array<String>) {
     val f = ReadFile("input/hello.in")
     println(f.lineCount)
     val of=WriteFile("output/out2.txt")
-    of.AppendToFile("hello my name is Avior")
-    of.AppendToFile("hello my name is Avior")
-    of.AppendToFile("hello my name is Avior")
+    of.appendToFile("hello my name is Avior")
+    of.appendToFile("hello my name is Avior")
+    of.appendToFile("hello my name is Avior")
     val str:String = "output/yoyo"
     val o=WriteFile(str)
-    //o.AppendToFile("hello my name is Avior")
+    //o.appendToFile("hello my name is Avior")
 
 }

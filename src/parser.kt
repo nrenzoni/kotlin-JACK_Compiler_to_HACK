@@ -3,7 +3,7 @@
  */
 
 enum class VM_Command_Type {
-    C_ARITHMETIC, C_PUSH, C_POP, C_LABEL, C_GOTO, C_IF, C_FUNCTION, C_RETURN, C_CALL
+    C_ARITHMETIC, C_PUSH, C_POP, C_LABEL, C_GOTO, C_IF, C_FUNCTION, C_RETURN, C_CALL, COMMENT
 }
 
 class VMParser(val filename: String) {
@@ -31,14 +31,17 @@ class VMParser(val filename: String) {
                 VM_Command_Type.C_ARITHMETIC
             currentCommand.contains(Regex("^push ", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_PUSH
             currentCommand.contains(Regex("^pop", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_POP
+            currentCommand.contains(Regex("^// ")) -> VM_Command_Type.COMMENT
             else -> throw Exception("parsing error on ${currentCommand}")
         }
     }
 
+    // example: 'push argument 0' : arg1 = 'argument', arg2 = '0'
+
     // caller is responsible for not calling if command type is C_RETURN
-    fun getArg1() = currentCommand.split(Regex(" "),2)[0]
+    fun getArg1() = currentCommand.split(Regex(" "),3)[1]
 
     // caller is responsible for only calling if command type is C_PUSH, C_POP, C_FUNCTION, or C_CALL.
-    fun getArg2() = currentCommand.split(Regex(" "),3)[1]
+    fun getArg2AsInt() = currentCommand.split(Regex(" "),4)[2].toInt()
 
 }

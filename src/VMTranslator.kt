@@ -44,6 +44,7 @@ class VMToHACKTranslator(vmFile: ReadFile) {
                 VM_Command_Type.C_FUNCTION -> TODO()
                 VM_Command_Type.C_RETURN -> TODO()
                 VM_Command_Type.C_CALL -> TODO()
+                VM_Command_Type.COMMENT -> {}
             }
 
             vm_parser.advanceToNextCommand()
@@ -84,7 +85,10 @@ fun main(args: Array<String>) {
 
         // arg1 is file
         File(args[1]).isFile() -> {
-
+            val vmFile = ReadFile(args[1])
+            val translator = VMToHACKTranslator(vmFile)
+            translator.translate()
+            translator.saveASM()
         }
 
         // arg1 isn't file  or directory

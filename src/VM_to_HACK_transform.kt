@@ -3,7 +3,7 @@
  */
 
 enum class REGISTER {
-    LOCAL, ARG, THIS, THAT, TEMP, STATIC, POINTER, CONSTANT
+    LOCAL, ARGUMENT, THIS, THAT, TEMP, STATIC, POINTER, CONSTANT
 }
 
 enum class MATH_OP {
@@ -36,7 +36,7 @@ class HACKCodeGen(protected var className: String) {
     }
 
     protected val registerMapping =
-            hashMapOf<REGISTER,Int>(REGISTER.LOCAL to 1, REGISTER.ARG to 2, REGISTER.THIS to 3, REGISTER.THAT to 4,
+            hashMapOf<REGISTER,Int>(REGISTER.LOCAL to 1, REGISTER.ARGUMENT to 2, REGISTER.THIS to 3, REGISTER.THAT to 4,
                     REGISTER.TEMP to 5, REGISTER.STATIC to 16, REGISTER.POINTER to 3)
 
     protected var stackIndex: Int = 256
@@ -58,10 +58,10 @@ class HACKCodeGen(protected var className: String) {
         appendLineToCode("M = D")
     }
 
+    // sp must be subtracted before using function, since sp points at next free slot on stack
     private fun pushDToAddrsOfSP_helper() {
         // sp points at 2nd to top item; we will push D here
         appendLineToCode("@SP")
-        // A = address of 2nd to top item
         appendLineToCode("A=M")
         appendLineToCode("M=D")
     }
@@ -85,7 +85,7 @@ class HACKCodeGen(protected var className: String) {
             }
 
             REGISTER.LOCAL -> TODO()
-            REGISTER.ARG -> TODO()
+            REGISTER.ARGUMENT -> TODO()
             REGISTER.THIS -> TODO()
             REGISTER.THAT -> TODO()
             REGISTER.TEMP -> TODO()
@@ -112,7 +112,7 @@ class HACKCodeGen(protected var className: String) {
 
         when(register) {
             // Group 1 (local, argument, this, that)
-            REGISTER.LOCAL, REGISTER.ARG, REGISTER.THIS, REGISTER.THAT -> {
+            REGISTER.LOCAL, REGISTER.ARGUMENT, REGISTER.THIS, REGISTER.THAT -> {
                 // D = RAM[regIndex]
                 appendLineToCode("@${regIndex}")
                 appendLineToCode("D = M")
@@ -233,7 +233,7 @@ class HACKCodeGen(protected var className: String) {
         // A = address of 2nd to top of stack
         appendLineToCode("A=M")
 
-        // D holds last pushed value, A holds 2nd to last pushed value
+        // D holds top of stack value, A holds 2nd to top address
 
         when(op_type) {
             MATH_OP.ADD -> appendLineToCode("D=D+M")
@@ -271,8 +271,8 @@ class HACKCodeGen(protected var className: String) {
         // A = address of 2nd to top of stack
         appendLineToCode("A=M")
 
-        // D = ( 2nd to last pushed value ) - ( last pushed value )
-        appendLineToCode("D=A-D")
+        // D = ( top of stack value ) - ( 2nd to last value on stack )
+        appendLineToCode("D=D-M")
 
         // A = true condition label; will push 1 to stack. otherwise 0 pushed to stack
         appendLineToCode("@CMP_TRUE.${lab_true}")
@@ -285,8 +285,7 @@ class HACKCodeGen(protected var className: String) {
         }
 
         // if code flow arrives here, cmp operation is false; push 0 to stack
-        appendLineToCode("@0")
-        appendLineToCode("D=A")
+        appendLineToCode("D=0")
         pushDToAddrsOfSP_helper()
         // jmp to end of routine
         appendLineToCode("@CMP_END.${lab_end}")
@@ -294,8 +293,7 @@ class HACKCodeGen(protected var className: String) {
 
         // true condition branch; push 1 to stack
         appendLineToCode("(CMP_TRUE.${lab_true})")
-        appendLineToCode("@1")
-        appendLineToCode("D=A")
+        appendLineToCode("D=1")
         pushDToAddrsOfSP_helper()
 
 
