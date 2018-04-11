@@ -296,4 +296,68 @@ class HACKCodeGen(protected var className: String) {
         // 2 pops, 1 push
         stackIndex--
     }
+    private fun CreateLabel(labelName: String){
+        appendLineToCode("{${className}.${labelName})")
+    }
+    private fun GotoF(labelName: String){
+        appendLineToCode("@${className}.${labelName}")
+        appendLineToCode("0; JMP")
+    }
+    private fun IfGotoF(labalName:String){
+        //if the head of the stack not equal to 0 jump
+        //D=RAM[SP-1]
+        appendLineToCode("@SP")
+        appendLineToCode("M=M-1")
+        appendLineToCode("A=M")
+        appendLineToCode("D=M")
+        //jump if not equal to zero
+        appendLineToCode("@${className}.${labalName}")
+        appendLineToCode("D; JNE")
+
+        //pop 1
+        stackIndex--
+    }
+    private fun pushPointerValue(pointerName: String){
+        when(pointerName){
+            "LCL","ARG","THIS","THAT" -> appendLineToCode("@${pointerName}")
+            else                      -> appendLineToCode("@${pointerName}.ReturnAddress")
+        }
+        //put the return address in D
+        appendLineToCode("D=A")
+        pushDToAddrsOfSP_helper()
+        //SP++
+        appendLineToCode("@SP")
+        appendLineToCode("M=M+1")
+        stackIndex++
+    }
+    private fun Call(funcName:String, varCount: Int){
+        //push the return address
+        pushPointerValue("${className}.${funcName}")
+        // push the value of the pointers
+        pushPointerValue("LCL")
+        pushPointerValue("ARG")
+        pushPointerValue("THIS")
+        pushPointerValue("THAT")
+        //ARG=SP-varCount-5
+        appendLineToCode("@SP")
+        appendLineToCode("D=A")
+        appendLineToCode("@${varCount}")
+        appendLineToCode("D=D-A")
+        appendLineToCode("@5")
+        appendLineToCode("D=D-A")
+        appendLineToCode("@ARG")
+        appendLineToCode("M=D")
+        //LCL=SP
+        appendLineToCode("@SP")
+        appendLineToCode("D=M")
+        appendLineToCode("@LCL")
+        appendLineToCode("M=D")
+        //run the function
+        GotoF(funcName)
+        //create the label return address. don't worry it will recognize the label even that the label write after the goto
+        CreateLabel("${funcName}.ReturnAddress")
+
+    }
+
+
 }
