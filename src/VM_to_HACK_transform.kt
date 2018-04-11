@@ -28,7 +28,7 @@ fun extractREGISTER(cmd_line: String): REGISTER {
     throw Exception("no matching register found in '${cmd_line}'")
 }
 
-class HACKCodeGen(protected var className: String) {
+class HACKCodeGen(protected var filename: String) {
     // classname needed for static push and pop
 
     protected val registerMapping =
@@ -58,9 +58,8 @@ class HACKCodeGen(protected var className: String) {
         appendLineToCode("M = D")
     }
 
-    // sp must be subtracted before using function, since sp points at next free slot on stack
+    // sp must be free before using function, since sp points at next free slot on stack
     private fun pushDToAddrsOfSP_helper() {
-        // sp points at 2nd to top item; we will push D here
         appendLineToCode("@SP")
         appendLineToCode("A = M")
         appendLineToCode("M = D")
@@ -96,7 +95,7 @@ class HACKCodeGen(protected var className: String) {
 
             REGISTER.STATIC -> {
                 //D=RAM[CLASS.X]
-                appendLineToCode("@${className}_${regOffsetORConst}")
+                appendLineToCode("@${filename}_${regOffsetORConst}")
                 appendLineToCode("D = M")
             }
 
@@ -162,7 +161,7 @@ class HACKCodeGen(protected var className: String) {
             // Group 3 (static)
             REGISTER.STATIC -> {
                 //RAM[CLASS_NAME.X]= RAM[SP-1]
-                appendLineToCode("@${className}_${regOffset}") // if X = 0 and className is the first class it's
+                appendLineToCode("@${filename}_${regOffset}") // if X = 0 and filename is the first class it's
                 // like to write @16
                 appendLineToCode("M = D")
             }
@@ -296,68 +295,100 @@ class HACKCodeGen(protected var className: String) {
         // 2 pops, 1 push
         stackIndex--
     }
-    private fun CreateLabel(labelName: String){
-        appendLineToCode("{${className}.${labelName})")
+
+    private fun staticLabelHACK(labelName: String) {
+        appendLineToCode("(${filename}_${labelName})")
     }
-    private fun GotoF(labelName: String){
-        appendLineToCode("@${className}.${labelName}")
+
+    private fun gotoHACK(labelName: String) {
+        appendLineToCode("@{labelName}")
         appendLineToCode("0; JMP")
     }
-    private fun IfGotoF(labalName:String){
+
+    private fun ifGotoHACK(labelName: String) {
         //if the head of the stack not equal to 0 jump
         //D=RAM[SP-1]
         appendLineToCode("@SP")
-        appendLineToCode("M=M-1")
-        appendLineToCode("A=M")
-        appendLineToCode("D=M")
+        appendLineToCode("M = M - 1")
+        appendLineToCode("A = M")
+        appendLineToCode("D = M")
         //jump if not equal to zero
-        appendLineToCode("@${className}.${labalName}")
+        appendLineToCode("@${filename}_${labelName}")
         appendLineToCode("D; JNE")
 
         //pop 1
         stackIndex--
     }
-    private fun pushPointerValue(pointerName: String){
+
+    private fun pushPointerValue_helper(pointerName: String) {
         when(pointerName){
             "LCL","ARG","THIS","THAT" -> appendLineToCode("@${pointerName}")
-            else                      -> appendLineToCode("@${pointerName}.ReturnAddress")
+            else                      -> appendLineToCode("@${pointerName}_ReturnAddress")
         }
         //put the return address in D
-        appendLineToCode("D=A")
+        appendLineToCode("D = A")
         pushDToAddrsOfSP_helper()
         //SP++
         appendLineToCode("@SP")
-        appendLineToCode("M=M+1")
+        appendLineToCode("M = M + 1")
         stackIndex++
     }
-    private fun Call(funcName:String, varCount: Int){
+
+    fun callHACK(funcName: String, varCount: Int) {
         //push the return address
-        pushPointerValue("${className}.${funcName}")
-        // push the value of the pointers
-        pushPointerValue("LCL")
-        pushPointerValue("ARG")
-        pushPointerValue("THIS")
-        pushPointerValue("THAT")
+        pushPointerValue_helper("${filename}.${funcName}")
+        // save pointers of calling function
+        pushPointerValue_helper("LCL")
+        pushPointerValue_helper("ARG")
+        pushPointerValue_helper("THIS")
+        pushPointerValue_helper("THAT")
         //ARG=SP-varCount-5
         appendLineToCode("@SP")
-        appendLineToCode("D=A")
+        appendLineToCode("D = M")
         appendLineToCode("@${varCount}")
-        appendLineToCode("D=D-A")
+        appendLineToCode("D = D - A")
         appendLineToCode("@5")
-        appendLineToCode("D=D-A")
+        appendLineToCode("D = D - A")
         appendLineToCode("@ARG")
-        appendLineToCode("M=D")
+        appendLineToCode("M = D")
         //LCL=SP
         appendLineToCode("@SP")
-        appendLineToCode("D=M")
+        appendLineToCode("D = M")
         appendLineToCode("@LCL")
-        appendLineToCode("M=D")
+        appendLineToCode("M = D")
         //run the function
-        GotoF(funcName)
-        //create the label return address. don't worry it will recognize the label even that the label write after the goto
-        CreateLabel("${funcName}.ReturnAddress")
-
+        gotoHACK(funcName)
+        //create label for return address. the label will be recognized even though label is written after the goto
+        appendLineToCode("(${funcName}_ReturnAddress)")
     }
 
+    fun functionHACK(funcName: String, localCount: Int) {
 
+        appendLineToCode("(${funcName})")
+
+        // initialize local variables to 0
+        appendLineToCode("@${localCount}")
+        appendLineToCode("D = A")
+        appendLineToCode("@${funcName}_loopEnd")
+        // jump over initialization of locals if localCount == 0
+        appendLineToCode("D; JEQ")
+        appendLineToCode("(${funcName}_loop)")
+        appendLineToCode("@SP")
+        appendLineToCode("A = M")
+        appendLineToCode("M = 0")
+        appendLineToCode("@SP")
+        appendLineToCode("M = M + 1")
+        appendLineToCode("@${funcName}_loop")
+        // keep looping as long as localCount > 0
+        appendLineToCode("D = D - 1; JNE")
+        // end when localCount == 0
+        appendLineToCode("(${funcName}_loopEnd)")
+    }
+
+    fun returnHACK() {
+        // D = *LCL
+        appendLineToCode("@LCL")
+        appendLineToCode("D = M")
+        // not complete...
+    }
 }
