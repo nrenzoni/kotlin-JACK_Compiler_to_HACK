@@ -6,21 +6,33 @@ import java.nio.file.Paths
  * Created by (442377900) on 28-Feb-18.
  */
 
-class MyDirectory(val dirName: String): AbstractIterator<MyFile>() {
+// MyDirectory and MyFile implement
+interface MyDirFile
+
+class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
 
     init {
         if(!Files.isDirectory(Paths.get(dirName)))
             throw Exception("directory: \"$dirName\" not found!")
     }
 
-    // custom iterator for returning MyFile objects of files (not directories) in parent directory
+    override fun iterator(): Iterator<MyDirFile> {
+        return MyDirectoryIterator(dirName)
+    }
+}
+
+// custom iterator for returning MyFile objects of files and sub-directories in parent directory
+private class MyDirectoryIterator(val dirName: String): AbstractIterator<MyDirFile>() {
+
     override fun computeNext() {
-        for (file in File(dirName).walk()) {
-            if( file.isFile() )
-                super.setNext( ReadFile(file.absolutePath.toString()) )
+        for (item in File(dirName).walk()) {
+            if ( item.isFile() ) {
+                super.setNext(ReadFile(item.absolutePath.toString()))
+            }
+            else if ( item.isDirectory() )
+                super.setNext( MyDirectory(item.absolutePath.toString()) )
             else {
-                println("DEBUG: $file is a directory, continuing to next item in directory")
-                continue
+                throw Exception("encountered a type which is not a directory nor file in '$dirName'")
             }
         }
         // finish iterating
@@ -28,7 +40,7 @@ class MyDirectory(val dirName: String): AbstractIterator<MyFile>() {
     }
 }
 
-abstract class MyFile(open val filename: String) {
+abstract class MyFile(open val filename: String) : MyDirFile {
     var fileContent: String = ""
         protected set
     var fileContentLines: MutableList<String> = mutableListOf<String>()

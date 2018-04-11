@@ -170,7 +170,7 @@ class HACKCodeGen(protected var className: String) {
             // Group 4 (pointer 0, pointer 1)
             REGISTER.POINTER -> {
                 if(regOffset != 0 && regOffset != 1)
-                    throw Exception("Only Pointer 0 or 1")
+                    throw Exception("Only Pointer 0 or 1 allowed, got ${regOffset}")
                 val offset : Int? = registerMapping[REGISTER.POINTER]?.plus(regOffset)
                 appendLineToCode("@${offset}")
 
@@ -274,7 +274,7 @@ class HACKCodeGen(protected var className: String) {
             else       -> throw Exception("cmpOpHACK() can only process a logical operation")
         }
 
-        // if code flow arrives here, cmp operation is false; push 0 to stack
+        // if code flow arrives here during HACK runtime, cmp operation is false; push 0 to stack
         appendLineToCode("D = 0")
         pushDToAddrsOfSP_helper()
         // jmp to end of routine

@@ -67,6 +67,34 @@ fun printUsage() {
     exitProcess(1)
 }
 
+fun translateVMFile(filename: String) {
+    val vmFile = ReadFile(filename)
+    val translator = VMToHACKTranslator(vmFile)
+    translator.translate()
+    translator.saveASM()
+}
+
+fun translateVMFilesInDir(dirName: String) {
+    val myDir = MyDirectory(dirName)
+
+    // process all *.vm files in directory and generate corresponding .asm files accordingly
+    for ( vmFile in myDir ) {
+        when ( vmFile ) {
+            is ReadFile -> {
+                val translator = VMToHACKTranslator(vmFile)
+                translator.translate()
+                translator.saveASM()
+            }
+            is MyDirectory -> {
+                // recursion to process sub-directories
+                translateVMFilesInDir(vmFile.dirName)
+            }
+            else -> throw Exception("unknown file encountered in '$dirName'")
+        }
+    }
+}
+
+// args starts at 0 (no program filename as arg[0])
 fun main(args: Array<String>) {
     // parse cmd line args, first arg should be either .VM file name or directory name containing .VM files
 
@@ -75,27 +103,8 @@ fun main(args: Array<String>) {
     }
 
     when {
-        File(args[0]).isDirectory() -> {
-            val myDir = MyDirectory(args[0])
-
-            // process all *.vm files in directory and generate corresponding .asm files accordingly
-            for ( vmFile: MyFile in myDir ) {
-                if (vmFile is ReadFile) {
-                    val translator = VMToHACKTranslator(vmFile)
-                    translator.translate()
-                    translator.saveASM()
-                }
-            }
-        }
-
-        // arg1 is file
-        File(args[0]).isFile() -> {
-            val vmFile = ReadFile(args[0])
-            val translator = VMToHACKTranslator(vmFile)
-            translator.translate()
-            translator.saveASM()
-        }
-
+        File(args[0]).isDirectory() -> translateVMFilesInDir(args[0])
+        File(args[0]).isFile() -> translateVMFile(args[0])
         // arg1 isn't file  or directory
         else -> printUsage()
     }
