@@ -6,8 +6,10 @@ import java.nio.file.Paths
  * Created by (442377900) on 28-Feb-18.
  */
 
-// MyDirectory and MyFile implement
-interface MyDirFile
+// MyDirectory and MyFile implement this
+interface MyDirFile {
+    val name: String
+}
 
 class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
 
@@ -15,6 +17,8 @@ class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
         if(!Files.isDirectory(Paths.get(dirName)))
             throw Exception("directory: \"$dirName\" not found!")
     }
+
+    override val name = dirName
 
     override fun iterator(): Iterator<MyDirFile> {
         return MyDirectoryIterator(dirName)
@@ -47,6 +51,7 @@ abstract class MyFile(open val filename: String) : MyDirFile {
         protected set
     var lineCount: Int = 0
         protected set
+    override val name = filename
 }
 
 // read only file, filename must exist in filesystem already
@@ -59,6 +64,8 @@ class ReadFile(override var filename: String) : MyFile(filename) {
         readInFile()
         super.lineCount = 1 + fileContentLines.count()
     }
+
+    override val name = filename
 
     // http://kotlination.com/kotlin/read-file-kotlin (method 1.2)
     private fun readInFile() {
@@ -85,8 +92,10 @@ class WriteFile(override val filename: String) : MyFile(filename) {
         }
     }
 
+    override val name = filename
+
     fun appendToFile(data: String, addNewLine: Boolean = true) {
-        fileContent += data + '\n'
+        fileContent += data
         fileContentLines.add(data)
         lineCount += 1
         flushToFile() // performs write
@@ -97,14 +106,10 @@ class WriteFile(override val filename: String) : MyFile(filename) {
 }
 
 fun main(args: Array<String>) {
-    val f = ReadFile("input/hello.in")
-    println(f.lineCount)
-    val of=WriteFile("output/out2.txt")
-    of.appendToFile("hello my name is Avior")
-    of.appendToFile("hello my name is Avior")
-    of.appendToFile("hello my name is Avior")
-    val str:String = "output/yoyo"
-    val o=WriteFile(str)
-    //o.appendToFile("hello my name is Avior")
+    val inF = ReadFile("input/test.in")
+    println("lines in read file: " + inF.lineCount)
 
+    val outF = WriteFile("output/test.out")
+    outF.appendToFile("hello my name is Avior.")
+    outF.appendToFile("and my name is Bob.")
 }

@@ -10,24 +10,6 @@ enum class MATH_OP {
     ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT
 }
 
-fun extractARITHType(cmd_line: String): MATH_OP {
-    for ( op in MATH_OP.values() ) {
-        if ( cmd_line.contains(Regex("^${op}", RegexOption.IGNORE_CASE)) ) {
-            return op
-        }
-    }
-    throw Exception("no matching enum found in '${cmd_line}'")
-}
-
-fun extractREGISTER(cmd_line: String): REGISTER {
-    for ( reg in REGISTER.values() ) {
-        if ( cmd_line.contains(Regex("${reg} ", RegexOption.IGNORE_CASE)) ) {
-            return reg
-        }
-    }
-    throw Exception("no matching register found in '${cmd_line}'")
-}
-
 class HACKCodeGen(protected var filename: String) {
     // classname needed for static push and pop
 
@@ -59,7 +41,7 @@ class HACKCodeGen(protected var filename: String) {
     }
 
     // sp must be free before using function, since sp points at next free slot on stack
-    private fun pushDToAddrsOfSP_helper() {
+    private fun pushDToAddrsOfSPHelper() {
         appendLineToCode("@SP")
         appendLineToCode("A = M")
         appendLineToCode("M = D")
@@ -109,7 +91,7 @@ class HACKCodeGen(protected var filename: String) {
             }
         }
 
-        pushDToAddrsOfSP_helper()
+        pushDToAddrsOfSPHelper()
         // increment stack pointer
         appendLineToCode("@SP")
         appendLineToCode("M = M + 1")
@@ -233,7 +215,7 @@ class HACKCodeGen(protected var filename: String) {
         }
 
         // push result to top of stack
-        pushDToAddrsOfSP_helper()
+        pushDToAddrsOfSPHelper()
         // sp++ (sp should point at next free space)
         appendLineToCode("@SP")
         appendLineToCode("M = M + 1")
@@ -275,7 +257,7 @@ class HACKCodeGen(protected var filename: String) {
 
         // if code flow arrives here during HACK runtime, cmp operation is false; push 0 to stack
         appendLineToCode("D = 0")
-        pushDToAddrsOfSP_helper()
+        pushDToAddrsOfSPHelper()
         // jmp to end of routine
         appendLineToCode("@CMP_END_${lab_end}")
         appendLineToCode("0; JMP")
@@ -283,7 +265,7 @@ class HACKCodeGen(protected var filename: String) {
         // true condition branch; push -1 to stack
         appendLineToCode("(CMP_TRUE_${lab_true})")
         appendLineToCode("D = -1")
-        pushDToAddrsOfSP_helper()
+        pushDToAddrsOfSPHelper()
 
 
         // both branch flows end up here
@@ -296,16 +278,16 @@ class HACKCodeGen(protected var filename: String) {
         stackIndex--
     }
 
-    private fun staticLabelHACK(labelName: String) {
+    fun labelHACK(labelName: String) {
         appendLineToCode("(${filename}_${labelName})")
     }
 
-    private fun gotoHACK(labelName: String) {
-        appendLineToCode("@{labelName}")
+    fun gotoHACK(labelName: String) {
+        appendLineToCode("@${labelName}")
         appendLineToCode("0; JMP")
     }
 
-    private fun ifGotoHACK(labelName: String) {
+    fun ifGotoHACK(labelName: String) {
         //if the head of the stack not equal to 0 jump
         //D=RAM[SP-1]
         appendLineToCode("@SP")
@@ -320,14 +302,14 @@ class HACKCodeGen(protected var filename: String) {
         stackIndex--
     }
 
-    private fun pushPointerValue_helper(pointerName: String) {
+    private fun pushPointerValueHelper(pointerName: String) {
         when(pointerName){
             "LCL","ARG","THIS","THAT" -> appendLineToCode("@${pointerName}")
             else                      -> appendLineToCode("@${pointerName}_ReturnAddress")
         }
         //put the return address in D
         appendLineToCode("D = A")
-        pushDToAddrsOfSP_helper()
+        pushDToAddrsOfSPHelper()
         //SP++
         appendLineToCode("@SP")
         appendLineToCode("M = M + 1")
@@ -336,12 +318,12 @@ class HACKCodeGen(protected var filename: String) {
 
     fun callHACK(funcName: String, varCount: Int) {
         //push the return address
-        pushPointerValue_helper("${filename}.${funcName}")
+        pushPointerValueHelper("${filename}.${funcName}")
         // save pointers of calling function
-        pushPointerValue_helper("LCL")
-        pushPointerValue_helper("ARG")
-        pushPointerValue_helper("THIS")
-        pushPointerValue_helper("THAT")
+        pushPointerValueHelper("LCL")
+        pushPointerValueHelper("ARG")
+        pushPointerValueHelper("THIS")
+        pushPointerValueHelper("THAT")
         //ARG=SP-varCount-5
         appendLineToCode("@SP")
         appendLineToCode("D = M")
@@ -386,9 +368,50 @@ class HACKCodeGen(protected var filename: String) {
     }
 
     fun returnHACK() {
-        // D = *LCL
+        // frame = LCL
         appendLineToCode("@LCL")
         appendLineToCode("D = M")
-        // not complete...
+        // ret = *(frame - 5). store ret value in ram[13] (gp register)
+        appendLineToCode("@5")
+        appendLineToCode("A = A - D")
+        appendLineToCode("@13")
+        appendLineToCode("M = D")
+        // *arg = pop()
+        appendLineToCode("@SP")
+        appendLineToCode("M = M - 1")
+        appendLineToCode("A = M")
+        appendLineToCode("D = M")
+        appendLineToCode("@ARG")
+        appendLineToCode("M = D")
+        // restore sp to before function call
+        // sp = arg+1
+        appendLineToCode("@ARG")
+        appendLineToCode("D = M")
+        appendLineToCode("@SP")
+        appendLineToCode("M = D + 1")
+
+        // side-affect: decrements LCL by 1
+        fun assignLCLMinusOneToReg(regName: String) {
+            appendLineToCode("@LCL")
+            appendLineToCode("M = M - 1")
+            appendLineToCode("A = M")
+            appendLineToCode("D = M")
+            appendLineToCode("@$regName")
+            appendLineToCode("M = D")
+        }
+
+        // that = *(frame - 1)
+        assignLCLMinusOneToReg("THAT")
+        // this = *(frame - 2)
+        assignLCLMinusOneToReg("THIS")
+        // arg = (*frame - 3)
+        assignLCLMinusOneToReg("ARG")
+        // lcl = *(frame - 4)
+        assignLCLMinusOneToReg("LCL")
+
+        // goto ret
+        appendLineToCode("@13")
+        appendLineToCode("A = M")
+        appendLineToCode("0; JMP")
     }
 }
