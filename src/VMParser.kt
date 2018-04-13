@@ -34,10 +34,10 @@ class VMParser(val filename: String) {
             currentCommand.contains(Regex("^label ", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_LABEL
             currentCommand.contains(Regex("^goto ", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_GOTO
             currentCommand.contains(Regex("^if-goto ", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_IF_GOTO
-            currentCommand.contains(Regex("^function [a-z._]+ [1-9][0-9]*&", RegexOption.IGNORE_CASE)) ->
+            currentCommand.contains(Regex("^function [a-z._][0-9a-z._]* [0-9]*", RegexOption.IGNORE_CASE)) ->
                 VM_Command_Type.C_FUNCTION
-            currentCommand.contains(Regex("^return&", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_RETURN
-            currentCommand.contains(Regex("^call [a-z._]+ [1-9][0-9]*&", RegexOption.IGNORE_CASE)) ->
+            currentCommand.contains(Regex("^return", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_RETURN
+            currentCommand.contains(Regex("^call [a-z._][0-9a-z._]* [0-9]*", RegexOption.IGNORE_CASE)) ->
                 VM_Command_Type
                     .C_CALL
             currentCommand.contains(Regex("^//")) || currentCommand.isBlank()

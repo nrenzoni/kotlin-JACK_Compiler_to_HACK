@@ -10,7 +10,7 @@ enum class MATH_OP {
     ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT
 }
 
-class HACKCodeGen(protected var filename: String) {
+class HACKCodeGen(protected var filename: String, val printDebugMsg: Boolean) {
     // classname needed for static push and pop
 
     protected val registerMapping =
@@ -33,6 +33,8 @@ class HACKCodeGen(protected var filename: String) {
     }
 
     fun initializeHACK() {
+        appendDbgMsg("initializing stack to $stackIndex")
+
         // load initial stack Index value in SP
         appendLineToCode("@${stackIndex}")
         appendLineToCode("D = A")
@@ -47,7 +49,15 @@ class HACKCodeGen(protected var filename: String) {
         appendLineToCode("M = D")
     }
 
-    fun pushHACK(register: REGISTER, regOffsetORConst: Int) {
+    private fun appendDbgMsg(debugMsg: String?) {
+        if (!printDebugMsg || debugMsg == null) {
+            return
+        }
+        appendLineToCode("// $debugMsg")
+    }
+
+    fun pushHACK(register: REGISTER, regOffsetORConst: Int, debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
 
         val regIndex = registerMapping[register]
 
@@ -61,7 +71,12 @@ class HACKCodeGen(protected var filename: String) {
 
             REGISTER.LOCAL, REGISTER.ARGUMENT, REGISTER.THIS, REGISTER.THAT -> {
                 //D=M=RAM[RAM[register]+regoffset]
-                appendLineToCode("@${regIndex}")
+                when (register) {
+                    REGISTER.LOCAL -> appendLineToCode("@LCL")
+                    REGISTER.ARGUMENT -> appendLineToCode("@ARG")
+                    REGISTER.THIS -> appendLineToCode("@THIS")
+                    REGISTER.THAT -> appendLineToCode("@THAT")
+                }
                 appendLineToCode("D = M")
                 appendLineToCode("@${regOffsetORConst}")
                 appendLineToCode("A = D + A")
@@ -98,7 +113,9 @@ class HACKCodeGen(protected var filename: String) {
         stackIndex++
     }
 
-    fun popHACK(register: REGISTER, regOffset: Int) {
+    fun popHACK(register: REGISTER, regOffset: Int, debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
+
         if(stackIndex < 256)
             throw Exception("cannot pop off of stack, already at lowest index")
 
@@ -116,10 +133,13 @@ class HACKCodeGen(protected var filename: String) {
             // Group 1 (local, argument, this, that)
             REGISTER.LOCAL, REGISTER.ARGUMENT, REGISTER.THIS, REGISTER.THAT -> {
                 // A = RAM[regIndex]
-                appendLineToCode("@${regIndex}")
+                when (register) {
+                    REGISTER.LOCAL -> appendLineToCode("@LCL")
+                    REGISTER.ARGUMENT -> appendLineToCode("@ARG")
+                    REGISTER.THIS -> appendLineToCode("@THIS")
+                    REGISTER.THAT -> appendLineToCode("@THAT")
+                }
                 appendLineToCode("A = M")
-
-
 
                 // A = RAM[regIndex] + regOffset
                 for(i in 1..regOffset)
@@ -164,7 +184,9 @@ class HACKCodeGen(protected var filename: String) {
 
     }
 
-    fun mathOpHACK(op_type: MATH_OP) {
+    fun mathOpHACK(op_type: MATH_OP, debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
+
         when (op_type) {
             MATH_OP.ADD, MATH_OP.SUB, MATH_OP.AND, MATH_OP.OR -> binaryMathOpHACK(op_type)
             MATH_OP.NEG, MATH_OP.NOT                          -> unaryMathOpHACK(op_type)
@@ -278,16 +300,24 @@ class HACKCodeGen(protected var filename: String) {
         stackIndex--
     }
 
-    fun labelHACK(labelName: String) {
-        appendLineToCode("(${filename}_${labelName})")
+    // used by label, goto, and if-goto vm commands, not by call, function, nor return vm commands
+    private fun genLabelWithFileBaseStrHelper(label: String) = "${filename}_${label}"
+
+    fun labelHACK(labelName: String, debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
+        appendLineToCode( "(" + genLabelWithFileBaseStrHelper(labelName) + ")" )
     }
 
-    fun gotoHACK(labelName: String) {
-        appendLineToCode("@${labelName}")
+    fun gotoHACK(labelName: String, debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
+
+        appendLineToCode( "@" + genLabelWithFileBaseStrHelper(labelName))
         appendLineToCode("0; JMP")
     }
 
-    fun ifGotoHACK(labelName: String) {
+    fun ifGotoHACK(labelName: String, debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
+
         //if the head of the stack not equal to 0 jump
         //D=RAM[SP-1]
         appendLineToCode("@SP")
@@ -295,93 +325,116 @@ class HACKCodeGen(protected var filename: String) {
         appendLineToCode("A = M")
         appendLineToCode("D = M")
         //jump if not equal to zero
-        appendLineToCode("@${filename}_${labelName}")
+        appendLineToCode( "@" + genLabelWithFileBaseStrHelper(labelName) )
         appendLineToCode("D; JNE")
 
         //pop 1
         stackIndex--
     }
 
-    private fun pushPointerValueHelper(pointerName: String) {
-        when(pointerName){
-            "LCL","ARG","THIS","THAT" -> appendLineToCode("@${pointerName}")
-            else                      -> appendLineToCode("@${pointerName}_ReturnAddress")
-        }
-        //put the return address in D
-        appendLineToCode("D = A")
-        pushDToAddrsOfSPHelper()
-        //SP++
-        appendLineToCode("@SP")
-        appendLineToCode("M = M + 1")
-        stackIndex++
-    }
+    fun callHACK(funcName: String, varCount: Int, debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
 
-    fun callHACK(funcName: String, varCount: Int) {
+        fun pushValueHelper(pointerName: String) {
+            when(pointerName) {
+                "LCL","ARG","THIS","THAT" -> {
+                    appendLineToCode("@${pointerName}")
+                    appendLineToCode("D = M")
+                }
+                else                      -> {
+                    appendLineToCode("@${pointerName}")
+                    //put the return address in D
+                    appendLineToCode("D = A")
+                }
+            }
+            pushDToAddrsOfSPHelper()
+            //SP++
+            appendLineToCode("@SP")
+            appendLineToCode("M = M + 1")
+            stackIndex++
+        }
+
         //push the return address
-        pushPointerValueHelper("${filename}.${funcName}")
+        pushValueHelper(funcName + "_ReturnAddress")
         // save pointers of calling function
-        pushPointerValueHelper("LCL")
-        pushPointerValueHelper("ARG")
-        pushPointerValueHelper("THIS")
-        pushPointerValueHelper("THAT")
-        //ARG=SP-varCount-5
-        appendLineToCode("@SP")
+        pushValueHelper("LCL")
+        pushValueHelper("ARG")
+        pushValueHelper("THIS")
+        pushValueHelper("THAT")
+        //ARG = SP-varCount-5
+        // @sp from call to pushValueHelper("THAT")
         appendLineToCode("D = M")
-        appendLineToCode("@${varCount}")
-        appendLineToCode("D = D - A")
+        // only subtract varCount from SP if != 0
+        if (varCount > 0) {
+            appendLineToCode("@${varCount}")
+            appendLineToCode("D = D - A")
+        }
         appendLineToCode("@5")
         appendLineToCode("D = D - A")
         appendLineToCode("@ARG")
         appendLineToCode("M = D")
-        //LCL=SP
+        //LCL = SP
         appendLineToCode("@SP")
         appendLineToCode("D = M")
         appendLineToCode("@LCL")
         appendLineToCode("M = D")
         //run the function
-        gotoHACK(funcName)
+        appendLineToCode("@$funcName")
+        appendLineToCode("0; JMP")
         //create label for return address. the label will be recognized even though label is written after the goto
         appendLineToCode("(${funcName}_ReturnAddress)")
     }
 
-    fun functionHACK(funcName: String, localCount: Int) {
+    fun functionHACK(funcName: String, localCount: Int, debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
+
+        if (localCount < 0)
+            throw Exception("localCount must be >= 0, got $localCount")
 
         appendLineToCode("(${funcName})")
 
-        // initialize local variables to 0
-        appendLineToCode("@${localCount}")
-        appendLineToCode("D = A")
-        appendLineToCode("@${funcName}_loopEnd")
-        // jump over initialization of locals if localCount == 0
-        appendLineToCode("D; JEQ")
-        appendLineToCode("(${funcName}_loop)")
-        appendLineToCode("@SP")
-        appendLineToCode("A = M")
-        appendLineToCode("M = 0")
-        appendLineToCode("@SP")
-        appendLineToCode("M = M + 1")
-        appendLineToCode("@${funcName}_loop")
-        // keep looping as long as localCount > 0
-        appendLineToCode("D = D - 1; JNE")
-        // end when localCount == 0
-        appendLineToCode("(${funcName}_loopEnd)")
+        // only initialize local variables if they exist
+        if (localCount > 0) {
+            // D = local variable count
+            appendLineToCode("@${localCount}")
+            appendLineToCode("D = A")
+            // jump over initialization of locals if localCount == 0
+            appendLineToCode("@${funcName}_loopEnd")
+            appendLineToCode("D; JEQ")
+            // initialize local variables to 0
+            appendLineToCode("(${funcName}_loop)")
+            appendLineToCode("@SP")
+            appendLineToCode("A = M")
+            appendLineToCode("M = 0")
+            appendLineToCode("@SP")
+            appendLineToCode("M = M + 1")
+            appendLineToCode("@${funcName}_loop")
+            // keep looping as long as localCount > 0
+            appendLineToCode("D = D - 1; JNE")
+            // end when localCount == 0
+            appendLineToCode("(${funcName}_loopEnd)")
+        }
     }
 
-    fun returnHACK() {
+    fun returnHACK(debugMsg: String? = null) {
+        appendDbgMsg(debugMsg)
+
         // frame = LCL
         appendLineToCode("@LCL")
         appendLineToCode("D = M")
-        // ret = *(frame - 5). store ret value in ram[13] (gp register)
+        // ret = *(frame - 5). store ret value in ram[13] (a gp register)
         appendLineToCode("@5")
-        appendLineToCode("A = A - D")
+        appendLineToCode("A = D - A")
+        appendLineToCode("D = M")
         appendLineToCode("@13")
         appendLineToCode("M = D")
-        // *arg = pop()
+        // &arg = pop()
         appendLineToCode("@SP")
         appendLineToCode("M = M - 1")
         appendLineToCode("A = M")
         appendLineToCode("D = M")
         appendLineToCode("@ARG")
+        appendLineToCode("A = M")
         appendLineToCode("M = D")
         // restore sp to before function call
         // sp = arg+1
@@ -390,7 +443,7 @@ class HACKCodeGen(protected var filename: String) {
         appendLineToCode("@SP")
         appendLineToCode("M = D + 1")
 
-        // side-affect: decrements LCL by 1
+        // side-affect of function: decrements LCL by 1
         fun assignLCLMinusOneToReg(regName: String) {
             appendLineToCode("@LCL")
             appendLineToCode("M = M - 1")

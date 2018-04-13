@@ -1,3 +1,4 @@
+
 import java.io.File
 import kotlin.system.exitProcess
 
@@ -24,7 +25,7 @@ class VMToHACKTranslator(vmFile: ReadFile) {
         val tmp = filename_no_ext.split("\\")
         filename_no_ext_no_dir = tmp[tmp.size-1]
 
-        vm_code_gen = HACKCodeGen(filename_no_ext_no_dir)
+        vm_code_gen = HACKCodeGen(filename_no_ext_no_dir, true)
 
         translate()
     }
@@ -35,34 +36,34 @@ class VMToHACKTranslator(vmFile: ReadFile) {
             when (vm_parser.getCurrentCommandType()) {
 
                 VM_Command_Type.C_ARITHMETIC -> {
-                    vm_code_gen.mathOpHACK( vm_parser.getArithType() )
+                    vm_code_gen.mathOpHACK( vm_parser.getArithType(), vm_parser.currentCommand )
                 }
 
                 VM_Command_Type.C_PUSH -> {
-                    vm_code_gen.pushHACK( vm_parser.getRegisterFromArg1(), vm_parser.getArg2AsInt() )
+                    vm_code_gen.pushHACK( vm_parser.getRegisterFromArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
                 }
 
                 VM_Command_Type.C_POP -> {
-                    vm_code_gen.popHACK( vm_parser.getRegisterFromArg1(), vm_parser.getArg2AsInt() )
+                    vm_code_gen.popHACK( vm_parser.getRegisterFromArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
                 }
 
                 VM_Command_Type.C_LABEL -> {
-                    vm_code_gen.labelHACK( vm_parser.getArg1() )
+                    vm_code_gen.labelHACK( vm_parser.getArg1(), vm_parser.currentCommand )
                 }
                 VM_Command_Type.C_GOTO -> {
-                    vm_code_gen.gotoHACK( vm_parser.getArg1() )
+                    vm_code_gen.gotoHACK( vm_parser.getArg1(), vm_parser.currentCommand )
                 }
                 VM_Command_Type.C_IF_GOTO -> {
-                    vm_code_gen.ifGotoHACK( vm_parser.getArg1() )
+                    vm_code_gen.ifGotoHACK( vm_parser.getArg1(), vm_parser.currentCommand )
                 }
                 VM_Command_Type.C_FUNCTION -> {
-                    vm_code_gen.functionHACK( vm_parser.getArg1(), vm_parser.getArg2AsInt() )
+                    vm_code_gen.functionHACK( vm_parser.getArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
                 }
                 VM_Command_Type.C_RETURN -> {
-                    vm_code_gen.returnHACK()
+                    vm_code_gen.returnHACK(vm_parser.currentCommand)
                 }
                 VM_Command_Type.C_CALL -> {
-                    vm_code_gen.callHACK( vm_parser.getArg1(), vm_parser.getArg2AsInt() )
+                    vm_code_gen.callHACK( vm_parser.getArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
                 }
                 // comments are skipped
                 VM_Command_Type.COMMENT -> {}
@@ -107,7 +108,7 @@ fun translateVMFilesInDir(dirName: String) {
     for ( vmFile in myDir ) {
         when ( vmFile ) {
             is ReadFile -> {
-                if (vmFile.filename.contains(Regex(".asm&", RegexOption.IGNORE_CASE))) {
+                if (vmFile.filename.contains(Regex(".asm$", RegexOption.IGNORE_CASE))) {
                     compiledHACKCode += VMToHACKTranslator(vmFile).getHACKCode()
                 }
                 else
