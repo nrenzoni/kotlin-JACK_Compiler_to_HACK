@@ -26,22 +26,22 @@ class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
 }
 
 // custom iterator for returning MyFile objects of files and sub-directories in parent directory
-private class MyDirectoryIterator(val dirName: String): AbstractIterator<MyDirFile>() {
+private class MyDirectoryIterator(val dirName: String): Iterator<MyDirFile> {
+    val dirContent = File(dirName).walk()
+    var curIndex = 0;
+    val maxIndex = dirContent.count() - 1
 
-    override fun computeNext() {
-        for (item in File(dirName).walk()) {
-            if ( item.isFile() ) {
-                super.setNext(ReadFile(item.absolutePath.toString()))
-            }
-            else if ( item.isDirectory() )
-                super.setNext( MyDirectory(item.absolutePath.toString()) )
-            else {
-                throw Exception("encountered a type which is not a directory nor file in '$dirName'")
-            }
-        }
-        // finish iterating
-        super.done()
+    override fun next(): MyDirFile {
+        val item = dirContent.elementAt(curIndex++)
+        if ( item.isFile() )
+            return ReadFile(item.absolutePath)
+        else if ( item.isDirectory() )
+            return MyDirectory(item.absolutePath)
+        else
+            throw Exception("encountered a type which is not a directory nor file in '$dirName'")
     }
+
+    override fun hasNext(): Boolean =  curIndex <= maxIndex
 }
 
 abstract class MyFile(open val filename: String) : MyDirFile {
