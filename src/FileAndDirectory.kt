@@ -28,7 +28,8 @@ class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
 // custom iterator for returning MyFile objects of files and sub-directories in parent directory
 private class MyDirectoryIterator(val dirName: String): Iterator<MyDirFile> {
     val dirContent = File(dirName).walk()
-    var curIndex = 0;
+    // start curIndex at 1 since index 0 is directory itself
+    var curIndex = 1;
     val maxIndex = dirContent.count() - 1
 
     override fun next(): MyDirFile {
@@ -103,6 +104,30 @@ class WriteFile(override val filename: String) : MyFile(filename) {
 
 
     private fun flushToFile() = File(filename).bufferedWriter().use { it.write(fileContent)}
+}
+
+fun shortenPathName(inPath: String, maxPrintDepth: Int = 3): String {
+    val splitName = inPath.split("\\")
+    return if (splitName.size > maxPrintDepth) {
+        var printName = "...\\"
+        for (i in splitName.size - maxPrintDepth until splitName.size - 1) {
+            printName += splitName[i] + "\\"
+        }
+        printName += splitName[splitName.size-1]
+        printName
+    } else
+        inPath
+}
+
+fun checkFilenameExtension(filename: String, extension: String): Boolean {
+    val filename_split = filename.split(".")
+    return filename_split[filename_split.size-1].contains(Regex(extension, RegexOption.IGNORE_CASE))
+}
+
+// returns filename without base directory nor extension
+fun getFilenameOnly(filename: String): String {
+    val filename_no_dir = filename.split("\\").last()
+    return filename_no_dir.split(".", limit = 2).first()
 }
 
 fun main(args: Array<String>) {

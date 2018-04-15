@@ -6,7 +6,8 @@ enum class VM_Command_Type {
     C_ARITHMETIC, C_PUSH, C_POP, C_LABEL, C_GOTO, C_IF_GOTO, C_FUNCTION, C_RETURN, C_CALL, COMMENT
 }
 
-// module for parsing file line by line. does not run by itself, line advancement is called from translator module
+// module for opening and parsing file line by line. does not run by itself, line advancement is called from translator
+// module
 class VMParser(val filename: String) {
 
     private val inputfile: ReadFile = ReadFile(filename)
@@ -21,8 +22,6 @@ class VMParser(val filename: String) {
 
     fun advanceToNextCommand() {
         currentLine++
-        /*currentCommand = inputfile.getLine(currentLine)
-        return currentCommand*/
     }
 
     fun getCurrentCommandType(): VM_Command_Type {

@@ -7,63 +7,53 @@ import kotlin.system.exitProcess
  */
 
 // module accepts a .vm file and translate to .asm (in HACK) by internally using VMParser and HACKCodeGen modules
-class VMToHACKTranslator(vmFile: ReadFile) {
-    protected val vm_parser = VMParser(vmFile.filename)
+class VMToHACKTranslator(protected val vmFiles: ArrayList<ReadFile>, protected val exportBaseFilename: String) {
 
-    // file name with no extension nor directory is used in hack code generator for compiling labels
-    protected val filename_no_ext: String
-    protected val filename_no_ext_no_dir: String
-    protected val vm_code_gen: HACKCodeGen
+    var generated_vm_code: StringBuilder = StringBuilder()
 
-    init {
-        val filename_split = vmFile.filename.split(".", limit = 2)
-        if (! filename_split[1].contains(Regex("vm", RegexOption.IGNORE_CASE))) {
-            throw Exception("cannot parse a non vm file")
+    fun translateFiles() {
+        HACKCodeGen.generateBootstrapCode(generated_vm_code, true)
+        for(vmFile in vmFiles) {
+            val vm_parser = VMParser(vmFile.filename)
+            val temp_vm_code = HACKCodeGen(getFilenameOnly(vmFile.filename), true)
+            translate(vm_parser, temp_vm_code)
+            generated_vm_code.append(temp_vm_code.code)
         }
-        filename_no_ext = filename_split[0]
-
-        val tmp = filename_no_ext.split("\\")
-        filename_no_ext_no_dir = tmp[tmp.size-1]
-
-        vm_code_gen = HACKCodeGen(filename_no_ext_no_dir, true)
-
-        translate()
     }
 
-    protected fun translate() {
-
+    protected fun translate(vm_parser: VMParser, vm_code_out: HACKCodeGen) {
         while(vm_parser.hasMoreCommands()) {
             when (vm_parser.getCurrentCommandType()) {
 
                 VM_Command_Type.C_ARITHMETIC -> {
-                    vm_code_gen.mathOpHACK( vm_parser.getArithType(), vm_parser.currentCommand )
+                    vm_code_out.mathOpHACK( vm_parser.getArithType(), vm_parser.currentCommand )
                 }
 
                 VM_Command_Type.C_PUSH -> {
-                    vm_code_gen.pushHACK( vm_parser.getRegisterFromArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
+                    vm_code_out.pushHACK( vm_parser.getRegisterFromArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
                 }
 
                 VM_Command_Type.C_POP -> {
-                    vm_code_gen.popHACK( vm_parser.getRegisterFromArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
+                    vm_code_out.popHACK( vm_parser.getRegisterFromArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
                 }
 
                 VM_Command_Type.C_LABEL -> {
-                    vm_code_gen.labelHACK( vm_parser.getArg1(), vm_parser.currentCommand )
+                    vm_code_out.labelHACK( vm_parser.getArg1(), vm_parser.currentCommand )
                 }
                 VM_Command_Type.C_GOTO -> {
-                    vm_code_gen.gotoHACK( vm_parser.getArg1(), vm_parser.currentCommand )
+                    vm_code_out.gotoHACK( vm_parser.getArg1(), vm_parser.currentCommand )
                 }
                 VM_Command_Type.C_IF_GOTO -> {
-                    vm_code_gen.ifGotoHACK( vm_parser.getArg1(), vm_parser.currentCommand )
+                    vm_code_out.ifGotoHACK( vm_parser.getArg1(), vm_parser.currentCommand )
                 }
                 VM_Command_Type.C_FUNCTION -> {
-                    vm_code_gen.functionHACK( vm_parser.getArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
+                    vm_code_out.functionHACK( vm_parser.getArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
                 }
                 VM_Command_Type.C_RETURN -> {
-                    vm_code_gen.returnHACK(vm_parser.currentCommand)
+                    vm_code_out.returnHACK(vm_parser.currentCommand)
                 }
                 VM_Command_Type.C_CALL -> {
-                    vm_code_gen.callHACK( vm_parser.getArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
+                    vm_code_out.callHACK( vm_parser.getArg1(), vm_parser.getArg2AsInt(), vm_parser.currentCommand )
                 }
                 // comments are skipped
                 VM_Command_Type.COMMENT -> {}
@@ -73,59 +63,61 @@ class VMToHACKTranslator(vmFile: ReadFile) {
         }
     }
 
-    // saveASM() static function
-    companion object {
-        fun saveASM(baseFilename: String, asmCode: String) {
-            val outputFile = WriteFile("${baseFilename}.asm")
-            outputFile.appendToFile(asmCode)
-        }
-    }
-
     fun saveASM() {
-        VMToHACKTranslator.saveASM("${filename_no_ext}", vm_code_gen.code)
+        val outputFileName = "$exportBaseFilename.asm"
+        val outputFile = WriteFile(outputFileName)
+        outputFile.appendToFile(generated_vm_code.toString())
+        println("writing to file: " + shortenPathName(outputFileName))
     }
 
-    fun getHACKCode(): String = vm_code_gen.code
+    fun getHACKCode(): String = generated_vm_code.toString()
+
+    fun translateAndSaveASM() {
+        translateFiles()
+        saveASM()
+    }
 }
 
 fun printUsage() {
-    println("usage: filename <VM file / directory>")
+    println("usage: filename <VM file / directory> (make sure to quote path with spaces in path name")
     exitProcess(1)
 }
 
 fun translateVMFile(filename: String) {
     val vmFile = ReadFile(filename)
-    val translator = VMToHACKTranslator(vmFile)
-    translator.saveASM()
+    val translator = VMToHACKTranslator(arrayListOf(vmFile), filename)
+    translator.translateAndSaveASM()
 }
 
 // compiles vm code to HAcK, and places compiled code in a single asm file derived from directory name
-fun translateVMFilesInDir(dirName: String) {
-    val myDir = MyDirectory(dirName)
-    var compiledHACKCode: String = ""
-
-    // process all *.vm files in directory and generate corresponding .asm files accordingly
+fun translateVMFilesInDir(dirPath: String) {
+    val myDir = MyDirectory(dirPath)
+    val myVMFiles = ArrayList<ReadFile>()
+    // add all *.vm files in dirPath to myVMFiles list
     for ( vmFile in myDir ) {
         when ( vmFile ) {
             is ReadFile -> {
-                if (vmFile.filename.contains(Regex(".asm$", RegexOption.IGNORE_CASE))) {
-                    compiledHACKCode += VMToHACKTranslator(vmFile).getHACKCode()
+                if (checkFilenameExtension(vmFile.filename, "vm")) {
+                    myVMFiles.add(vmFile)
+                    println("parsing " + shortenPathName(vmFile.name))
                 }
-                else
-                    println("skipping over ${vmFile.name} in ${myDir.dirName}")
+                // file not .asm file
+                else {
+                    println("skipping over file " + shortenPathName(vmFile.name))
+                }
             }
-            /*is MyDirectory -> {
-                // recursion to process sub-directories
-                translateVMFilesInDir(vmFile.dirName)
-            }*/
-            else -> println("skipping over ${vmFile.name} in ${myDir.dirName}")
+            is MyDirectory -> {
+                println("skipping over directory " + shortenPathName(vmFile.name))
+            }
         }
     }
-
-    VMToHACKTranslator.saveASM("${dirName}.asm", compiledHACKCode)
+    val splitName = dirPath.split("\\")
+    // dir base name
+    val newFileName = splitName[splitName.size - 1]
+    VMToHACKTranslator(myVMFiles, dirPath + "\\" + newFileName).translateAndSaveASM()
 }
 
-// args starts at 0 (no program filename in arg[0] like in C)
+// first cmd arg at args[0] (no program filename in argv[0] like in C)
 fun main(args: Array<String>) {
     // parse cmd line args, first arg should be either .VM file name or directory name containing .VM files
 

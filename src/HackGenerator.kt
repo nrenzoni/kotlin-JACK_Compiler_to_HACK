@@ -10,7 +10,8 @@ enum class MATH_OP {
     ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT
 }
 
-class HACKCodeGen(protected var filename: String, val printDebugMsg: Boolean) {
+class HACKCodeGen(protected var filename: String, protected val printDebugMsg: Boolean,
+                  val generateBootstrapCode: Boolean = false) {
     // classname needed for static push and pop
 
     protected val registerMapping =
@@ -19,27 +20,39 @@ class HACKCodeGen(protected var filename: String, val printDebugMsg: Boolean) {
 
     protected var stackIndex: Int = 256
     protected var heapIndex: Int  = 2048
-    var code: String = ""
+    var code: StringBuilder = StringBuilder()
         private set
 
     init {
-        initializeHACK()
+        if (generateBootstrapCode)
+            appendBootstrapCode()
     }
 
     protected var labelCounter = 0
 
     private fun appendLineToCode(hack_op: String) {
-        code += hack_op + "\n"
+        code.append(hack_op + "\n")
     }
 
-    fun initializeHACK() {
-        appendDbgMsg("initializing stack to $stackIndex")
-
-        // load initial stack Index value in SP
-        appendLineToCode("@${stackIndex}")
-        appendLineToCode("D = A")
-        appendLineToCode("@SP")
-        appendLineToCode("M = D")
+    // static functions
+    companion object {
+        fun generateBootstrapCode(outVar: StringBuilder, printDbg: Boolean) {
+            if (printDbg)
+                appendLineToVar("// initializing stack to 256", outVar)
+            val writer = { hackCode: String -> appendLineToVar(hackCode, outVar)}
+            writer
+            writer("@256")
+            writer("D = A")
+            writer("@SP")
+            writer("M = D")
+        }
+        private fun appendLineToVar(hack_op: String, outVar: StringBuilder) {
+            outVar.append(hack_op + "\n")
+        }
+    }
+    
+    fun appendBootstrapCode() {
+        generateBootstrapCode(code, printDebugMsg)
     }
 
     // sp must be free before using function, since sp points at next free slot on stack
