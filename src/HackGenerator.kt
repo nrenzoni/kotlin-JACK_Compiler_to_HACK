@@ -33,26 +33,15 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
     private fun appendLineToCode(hack_op: String) {
         code.append(hack_op + "\n")
     }
-
-    // static functions
-    companion object {
-        fun generateBootstrapCode(outVar: StringBuilder, printDbg: Boolean) {
-            if (printDbg)
-                appendLineToVar("// initializing stack to 256", outVar)
-            val writer = { hackCode: String -> appendLineToVar(hackCode, outVar)}
-            writer
-            writer("@256")
-            writer("D = A")
-            writer("@SP")
-            writer("M = D")
-        }
-        private fun appendLineToVar(hack_op: String, outVar: StringBuilder) {
-            outVar.append(hack_op + "\n")
-        }
-    }
     
-    fun appendBootstrapCode() {
-        generateBootstrapCode(code, printDebugMsg)
+    private fun appendBootstrapCode() {
+        appendDbgMsg("// initializing stack to 256")
+
+        appendLineToCode("@256")
+        appendLineToCode("D = A")
+        appendLineToCode("@SP")
+        appendLineToCode("M = D")
+        callHACK("Sys.init", 0, "call Sys.init 0")
     }
 
     // sp must be free before using function, since sp points at next free slot on stack
@@ -66,7 +55,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
         if (!printDebugMsg || debugMsg == null) {
             return
         }
-        appendLineToCode("// $debugMsg")
+        appendLineToCode("\n// $debugMsg")
     }
 
     fun pushHACK(register: REGISTER, regOffsetORConst: Int, debugMsg: String? = null) {
@@ -242,15 +231,13 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
         // D holds top of stack value, A holds 2nd to top address
 
         when(op_type) {
-            MATH_OP.ADD -> appendLineToCode("D = D + M")
-            MATH_OP.SUB -> appendLineToCode("D = M - D")
-            MATH_OP.AND -> appendLineToCode("D = D & M")
-            MATH_OP.OR -> appendLineToCode("D = D | M")
+            MATH_OP.ADD -> appendLineToCode("M = D + M")
+            MATH_OP.SUB -> appendLineToCode("M = M - D")
+            MATH_OP.AND -> appendLineToCode("M = D & M")
+            MATH_OP.OR -> appendLineToCode("M = D | M")
             else -> throw Exception("binaryMathOpHACK() can only process a binary math operation")
         }
 
-        // push result to top of stack
-        pushDToAddrsOfSPHelper()
         // sp++ (sp should point at next free space)
         appendLineToCode("@SP")
         appendLineToCode("M = M + 1")
@@ -291,17 +278,18 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
         }
 
         // if code flow arrives here during HACK runtime, cmp operation is false; push 0 to stack
-        appendLineToCode("D = 0")
-        pushDToAddrsOfSPHelper()
+        appendLineToCode("@SP")
+        appendLineToCode("A = M")
+        appendLineToCode("M = 0")
         // jmp to end of routine
         appendLineToCode("@CMP_END_${lab_end}")
         appendLineToCode("0; JMP")
 
         // true condition branch; push -1 to stack
         appendLineToCode("(CMP_TRUE_${lab_true})")
-        appendLineToCode("D = -1")
-        pushDToAddrsOfSPHelper()
-
+        appendLineToCode("@SP")
+        appendLineToCode("A = M")
+        appendLineToCode("M = -1")
 
         // both branch flows end up here
         appendLineToCode("(CMP_END_${lab_end})")
@@ -367,8 +355,10 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
             stackIndex++
         }
 
+        val label = labelCounter++
+
         //push the return address
-        pushValueHelper(funcName + "_ReturnAddress")
+        pushValueHelper(funcName + "_ReturnAddress_" + label)
         // save pointers of calling function
         pushValueHelper("LCL")
         pushValueHelper("ARG")
@@ -395,7 +385,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
         appendLineToCode("@$funcName")
         appendLineToCode("0; JMP")
         //create label for return address. the label will be recognized even though label is written after the goto
-        appendLineToCode("(${funcName}_ReturnAddress)")
+        appendLineToCode("(${funcName}_ReturnAddress_${label})")
     }
 
     fun functionHACK(funcName: String, localCount: Int, debugMsg: String? = null) {

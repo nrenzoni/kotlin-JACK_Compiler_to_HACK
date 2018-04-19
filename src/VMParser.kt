@@ -51,7 +51,7 @@ class VMParser(val filename: String) {
     fun getArg1() = currentCommand.split(Regex(" "),3)[1]
 
     // caller is responsible for only calling if command type is C_PUSH, C_POP, C_FUNCTION, or C_CALL.
-    fun getArg2AsInt() = currentCommand.split(Regex(" |\t"),4)[2].toInt()
+    fun getArg2AsInt() = currentCommand.split(Regex("[ \t]"),4)[2].toInt()
 
     fun getArithType(): MATH_OP {
         for ( op in MATH_OP.values() ) {

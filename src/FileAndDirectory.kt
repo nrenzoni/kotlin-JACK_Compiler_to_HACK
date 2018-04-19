@@ -15,7 +15,7 @@ class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
 
     init {
         if(!Files.isDirectory(Paths.get(dirName)))
-            throw Exception("directory: \"$dirName\" not found!")
+            throw Exception("not a directory: \"$dirName\"")
     }
 
     override val name = dirName
@@ -34,12 +34,11 @@ private class MyDirectoryIterator(val dirName: String): Iterator<MyDirFile> {
 
     override fun next(): MyDirFile {
         val item = dirContent.elementAt(curIndex++)
-        if ( item.isFile() )
-            return ReadFile(item.absolutePath)
-        else if ( item.isDirectory() )
-            return MyDirectory(item.absolutePath)
-        else
-            throw Exception("encountered a type which is not a directory nor file in '$dirName'")
+        return when {
+            item.isFile() -> ReadFile(item.absolutePath)
+            item.isDirectory() -> MyDirectory(item.absolutePath)
+            else -> throw Exception("encountered a type which is not a directory nor file in '$dirName'")
+        }
     }
 
     override fun hasNext(): Boolean =  curIndex <= maxIndex
@@ -55,7 +54,7 @@ abstract class MyFile(open val filename: String) : MyDirFile {
     override val name = filename
 }
 
-// read only file, filename must exist in filesystem already
+// read-only file, filename must exist in filesystem already
 class ReadFile(override var filename: String) : MyFile(filename) {
     init {
         filename = Paths.get(filename).toAbsolutePath().normalize().toString()
@@ -89,19 +88,20 @@ class WriteFile(override val filename: String) : MyFile(filename) {
         if(!File(filename).exists()) {
             val f: Boolean = File( filename).createNewFile()
             if (!f)
-                throw error("can't create the file")
+                throw error("error creating: $filename")
         }
     }
 
     override val name = filename
 
+    // fix: data appended to fileContentLines should be split on newline char. lineCount should increase according to
+    // how many lines of data input
     fun appendToFile(data: String, addNewLine: Boolean = true) {
         fileContent += data
         fileContentLines.add(data)
         lineCount += 1
         flushToFile() // performs write
     }
-
 
     private fun flushToFile() = File(filename).bufferedWriter().use { it.write(fileContent)}
 }

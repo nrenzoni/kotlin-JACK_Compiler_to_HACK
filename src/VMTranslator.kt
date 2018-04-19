@@ -1,4 +1,3 @@
-
 import java.io.File
 import kotlin.system.exitProcess
 
@@ -7,17 +6,22 @@ import kotlin.system.exitProcess
  */
 
 // module accepts a .vm file and translate to .asm (in HACK) by internally using VMParser and HACKCodeGen modules
-class VMToHACKTranslator(protected val vmFiles: ArrayList<ReadFile>, protected val exportBaseFilename: String) {
+class VMToHACKTranslator(protected val vmFiles: ArrayList<ReadFile>, protected val exportBaseFilename: String,
+                         protected val genBootstrap: Boolean) {
 
     var generated_vm_code: StringBuilder = StringBuilder()
 
     fun translateFiles() {
-        HACKCodeGen.generateBootstrapCode(generated_vm_code, true)
-        for(vmFile in vmFiles) {
-            val vm_parser = VMParser(vmFile.filename)
-            val temp_vm_code = HACKCodeGen(getFilenameOnly(vmFile.filename), true)
-            translate(vm_parser, temp_vm_code)
-            generated_vm_code.append(temp_vm_code.code)
+        vmFiles.forEachIndexed { i, vmFile ->
+            run {
+                // only generate bootstrap code for first vm file processed
+                val genBootstrap = i == 0
+
+                val vm_parser = VMParser(vmFile.filename)
+                val temp_vm_code = HACKCodeGen(getFilenameOnly(vmFile.filename), true, genBootstrap)
+                translate(vm_parser, temp_vm_code)
+                generated_vm_code.append(temp_vm_code.code)
+            }
         }
     }
 
@@ -83,9 +87,10 @@ fun printUsage() {
     exitProcess(1)
 }
 
+// no bootstrapping added
 fun translateVMFile(filename: String) {
     val vmFile = ReadFile(filename)
-    val translator = VMToHACKTranslator(arrayListOf(vmFile), filename)
+    val translator = VMToHACKTranslator(arrayListOf(vmFile), filename, false)
     translator.translateAndSaveASM()
 }
 
@@ -114,7 +119,7 @@ fun translateVMFilesInDir(dirPath: String) {
     val splitName = dirPath.split("\\")
     // dir base name
     val newFileName = splitName[splitName.size - 1]
-    VMToHACKTranslator(myVMFiles, dirPath + "\\" + newFileName).translateAndSaveASM()
+    VMToHACKTranslator(myVMFiles, dirPath + "\\" + newFileName, false).translateAndSaveASM()
 }
 
 // first cmd arg at args[0] (no program filename in argv[0] like in C)
