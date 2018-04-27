@@ -1,0 +1,9 @@
+class Main {
+	function void main() {
+		var LinePaintJobDriver driver;
+		let driver = LinePaintJobDriver.new();
+		do driver.run();
+		do driver.dispose();
+		return;
+   }
+}
