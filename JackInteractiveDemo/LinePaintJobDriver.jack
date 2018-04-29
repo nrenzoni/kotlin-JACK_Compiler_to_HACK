@@ -24,7 +24,7 @@ class LinePaintJobDriver {
 		let _keyPressed = 0;
 		let _goingRight = true;
 		let _growLine = false;
-		let _pause = true;
+		let _pause = false;
 		
 		let _currentColor = true;
 		let _colorToggled = true;
@@ -38,7 +38,7 @@ class LinePaintJobDriver {
 	method void processKeyPress() {
 	
 		// ENTER button
-		if ( _keyPressed = 128 ) { let _pause = ~ _pause; }
+		//if ( _keyPressed = 128 ) { let _pause = ~ _pause; }
 		
 		// RIGHT ARROW
 		if ( _keyPressed = 132 ) {
