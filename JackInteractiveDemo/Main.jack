@@ -4,7 +4,7 @@ class Main {
 		var LinePaintJobDriver driver;
 		let driver = LinePaintJobDriver.new();
 		do Output.println();
-		do Output.printString("For start please press Enter twich");
+		do Output.printString("For start please press Enter");
 		do Output.println();
 		do Output.printString("with left and right control the direction of the paint ");
 		do Output.println();
