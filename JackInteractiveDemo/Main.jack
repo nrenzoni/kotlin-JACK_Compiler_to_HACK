@@ -1,7 +1,23 @@
 class Main {
 	function void main() {
+		var  int input;
 		var LinePaintJobDriver driver;
 		let driver = LinePaintJobDriver.new();
+		do Output.println();
+		do Output.printString("For start please press Enter twich");
+		do Output.println();
+		do Output.printString("with left and right control the direction of the paint ");
+		do Output.println();
+		do Output.printString("with up and down control ... ");
+		do Output.println();
+		do Output.printString("with C control drow or delete ");
+		do Output.println();
+		let input = Keyboard.readChar();
+		while (~(input = 128)){
+			let input = Keyboard.readChar();
+		}
+		do Screen.clearScreen();
+		
 		do driver.run();
 		do driver.dispose();
 		return;
