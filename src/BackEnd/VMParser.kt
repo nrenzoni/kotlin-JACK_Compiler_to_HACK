@@ -1,3 +1,7 @@
+package BackEnd
+
+import FileAndDirectory.ReadFile
+
 /**
  * Created by (442377900) on 06-Mar-18.
  */
@@ -37,8 +41,7 @@ class VMParser(val filename: String) {
                 VM_Command_Type.C_FUNCTION
             currentCommand.contains(Regex("^return", RegexOption.IGNORE_CASE)) -> VM_Command_Type.C_RETURN
             currentCommand.contains(Regex("^call [a-z._][0-9a-z._]* [0-9]*", RegexOption.IGNORE_CASE)) ->
-                VM_Command_Type
-                    .C_CALL
+                VM_Command_Type.C_CALL
             currentCommand.contains(Regex("^//")) || currentCommand.isBlank()
             -> VM_Command_Type.COMMENT
             else -> throw Exception("parsing error on '${currentCommand}'")

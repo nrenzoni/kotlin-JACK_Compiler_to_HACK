@@ -1,3 +1,6 @@
+package BackEnd
+
+import FileAndDirectory.*
 import java.io.File
 import kotlin.system.exitProcess
 
@@ -5,7 +8,7 @@ import kotlin.system.exitProcess
  * Created by (442377900) on 14-Mar-18.
  */
 
-// module accepts a .vm file and translate to .asm (in HACK) by internally using VMParser and HACKCodeGen modules
+// module accepts a .vm file and translate to .asm (in HACK) by internally using BackEnd.VMParser and BackEnd.HACKCodeGen modules
 class VMToHACKTranslator(protected val vmFiles: ArrayList<ReadFile>, protected val exportBaseFilename: String,
                          protected val genBootstrap: Boolean) {
 
@@ -17,8 +20,8 @@ class VMToHACKTranslator(protected val vmFiles: ArrayList<ReadFile>, protected v
                 // only generate bootstrap code for first vm file processed
                 val genBootstrap = i == 0
 
-                val vm_parser = VMParser(vmFile.filename)
-                val temp_vm_code = HACKCodeGen(getFilenameOnly(vmFile.filename), true, genBootstrap)
+                val vm_parser = VMParser(vmFile.name)
+                val temp_vm_code = HACKCodeGen(getFilenameOnly(vmFile.name), true, genBootstrap)
                 translate(vm_parser, temp_vm_code)
                 generated_vm_code.append(temp_vm_code.code)
             }
@@ -83,7 +86,7 @@ class VMToHACKTranslator(protected val vmFiles: ArrayList<ReadFile>, protected v
 }
 
 fun printUsage() {
-    println("usage: filename <VM file / directory> (make sure to quote path with spaces in path name")
+    println("usage: name <VM file / directory> (make sure to quote path with spaces in path name")
     exitProcess(1)
 }
 
@@ -102,7 +105,7 @@ fun translateVMFilesInDir(dirPath: String) {
     for ( vmFile in myDir ) {
         when ( vmFile ) {
             is ReadFile -> {
-                if (checkFilenameExtension(vmFile.filename, "vm")) {
+                if (checkFilenameExtension(vmFile.name, "vm")) {
                     myVMFiles.add(vmFile)
                     println("parsing " + shortenPathName(vmFile.name))
                 }
@@ -122,12 +125,12 @@ fun translateVMFilesInDir(dirPath: String) {
     VMToHACKTranslator(myVMFiles, dirPath + "\\" + newFileName, false).translateAndSaveASM()
 }
 
-// first cmd arg at args[0] (no program filename in argv[0] like in C)
+// first cmd arg at args[0] (no program name in argv[0] like in C)
 fun main(args: Array<String>) {
     // parse cmd line args, first arg should be either .VM file name or directory name containing .VM files
 
     if(args.isEmpty()) {
-       printUsage()
+        printUsage()
     }
 
     when {

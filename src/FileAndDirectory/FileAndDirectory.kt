@@ -1,3 +1,5 @@
+package FileAndDirectory
+
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -6,7 +8,7 @@ import java.nio.file.Paths
  * Created by (442377900) on 28-Feb-18.
  */
 
-// MyDirectory and MyFile implement this
+// FileAndDirectory.MyDirectory and FileAndDirectory.MyFile implement this
 interface MyDirFile {
     val name: String
 }
@@ -25,7 +27,7 @@ class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
     }
 }
 
-// custom iterator for returning MyFile objects of files and sub-directories in parent directory
+// custom iterator for returning FileAndDirectory.MyFile objects of files and sub-directories in parent directory
 private class MyDirectoryIterator(val dirName: String): Iterator<MyDirFile> {
     val dirContent = File(dirName).walk()
     // start curIndex at 1 since index 0 is directory itself
@@ -44,35 +46,33 @@ private class MyDirectoryIterator(val dirName: String): Iterator<MyDirFile> {
     override fun hasNext(): Boolean =  curIndex <= maxIndex
 }
 
-abstract class MyFile(open val filename: String) : MyDirFile {
+abstract class MyFile(override val name: String) : MyDirFile {
     var fileContent: String = ""
         protected set
-    var fileContentLines: MutableList<String> = mutableListOf<String>()
+    // array of strings for each line in file
+    var fileContentLines: MutableList<String> = mutableListOf()
         protected set
     var lineCount: Int = 0
         protected set
-    override val name = filename
 }
 
-// read-only file, filename must exist in filesystem already
-class ReadFile(override var filename: String) : MyFile(filename) {
+// read-only file, name must exist in filesystem already
+class ReadFile(override var name: String) : MyFile(name) {
     init {
-        filename = Paths.get(filename).toAbsolutePath().normalize().toString()
-        if(!Files.exists(Paths.get(filename)))
-            throw Exception("file: \"$filename\" does not exist in filesystem!")
+        name = Paths.get(name).toAbsolutePath().normalize().toString()
+        if(!Files.exists(Paths.get(name)))
+            throw Exception("file: \"$name\" does not exist in filesystem!")
 
         readInFile()
         super.lineCount = 1 + fileContentLines.count()
     }
 
-    override val name = filename
-
     // http://kotlination.com/kotlin/read-file-kotlin (method 1.2)
     private fun readInFile() {
-        File(filename).bufferedReader().useLines {
+        File(name).bufferedReader().useLines {
             it.forEach {
                 fileContentLines.add(it)
-                fileContent += it
+                fileContent += it + "\n"
             }
         }
     }
@@ -83,16 +83,14 @@ class ReadFile(override var filename: String) : MyFile(filename) {
 }
 
 // for writing to file, no reading
-class WriteFile(override val filename: String) : MyFile(filename) {
+class WriteFile(override val name: String) : MyFile(name) {
     init{
-        if(!File(filename).exists()) {
-            val f: Boolean = File( filename).createNewFile()
+        if(!File(name).exists()) {
+            val f: Boolean = File( name).createNewFile()
             if (!f)
-                throw error("error creating: $filename")
+                throw error("error creating: $name")
         }
     }
-
-    override val name = filename
 
     // fix: data appended to fileContentLines should be split on newline char. lineCount should increase according to
     // how many lines of data input
@@ -103,7 +101,7 @@ class WriteFile(override val filename: String) : MyFile(filename) {
         flushToFile() // performs write
     }
 
-    private fun flushToFile() = File(filename).bufferedWriter().use { it.write(fileContent)}
+    private fun flushToFile() = File(name).bufferedWriter().use { it.write(fileContent)}
 }
 
 fun shortenPathName(inPath: String, maxPrintDepth: Int = 3): String {
@@ -120,14 +118,14 @@ fun shortenPathName(inPath: String, maxPrintDepth: Int = 3): String {
 }
 
 fun checkFilenameExtension(filename: String, extension: String): Boolean {
-    val filename_split = filename.split(".")
+    val filename_split = filename.split("")
     return filename_split[filename_split.size-1].contains(Regex(extension, RegexOption.IGNORE_CASE))
 }
 
-// returns filename without base directory nor extension
+// returns name without base directory nor extension
 fun getFilenameOnly(filename: String): String {
     val filename_no_dir = filename.split("\\").last()
-    return filename_no_dir.split(".", limit = 2).first()
+    return filename_no_dir.split("", limit = 2).first()
 }
 
 fun main(args: Array<String>) {

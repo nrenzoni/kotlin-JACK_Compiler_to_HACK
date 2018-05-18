@@ -1,3 +1,5 @@
+package BackEnd
+
 /**
  * Created by (442377900) on 07-Mar-18.
  */
@@ -98,7 +100,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
                 appendLineToCode("D = M")
             }
 
-            REGISTER.POINTER->{
+            REGISTER.POINTER ->{
                 if(regOffsetORConst != 0 && regOffsetORConst != 1)
                     throw Exception("Only Pointer 0 or 1")
                 //D=RAM[regIndex+regoffset]
@@ -165,7 +167,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
             // Group 3 (static)
             REGISTER.STATIC -> {
                 //RAM[CLASS_NAME.X]= RAM[SP-1]
-                appendLineToCode("@${filename}_${regOffset}") // if X = 0 and filename is the first class it's
+                appendLineToCode("@${filename}_${regOffset}") // if X = 0 and name is the first class it's
                 // like to write @16
                 appendLineToCode("M = D")
             }
@@ -191,8 +193,8 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
 
         when (op_type) {
             MATH_OP.ADD, MATH_OP.SUB, MATH_OP.AND, MATH_OP.OR -> binaryMathOpHACK(op_type)
-            MATH_OP.NEG, MATH_OP.NOT                          -> unaryMathOpHACK(op_type)
-            MATH_OP.EQ, MATH_OP.GT, MATH_OP.LT                -> cmpOpHACK(op_type)
+            MATH_OP.NEG, MATH_OP.NOT -> unaryMathOpHACK(op_type)
+            MATH_OP.EQ, MATH_OP.GT, MATH_OP.LT -> cmpOpHACK(op_type)
         }
     }
 
