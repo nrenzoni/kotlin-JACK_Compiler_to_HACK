@@ -1,0 +1,149 @@
+class LinePaintJobDriver {
+
+	field LinePaintJob _linePaint;
+	
+	field int _delay;
+	
+	field int _keyPressed;
+	field bool _goingRight;
+	field bool _growLine;
+	field bool _pause;
+	
+	field bool _currentColor;
+	field bool _colorToggled;
+	
+	field bool _horizontalChange;
+	field bool _verticalChange;
+
+	constructor LinePaintJobDriver new() {
+		
+		let _linePaint = LinePaintJob.new(255, 511, 0, 255); // int xPos, int maxX, int lowY, int highY
+		
+		let _delay = 2;
+		
+		let _keyPressed = 0;
+		let _goingRight = true;
+		let _growLine = false;
+		let _pause = false;
+		
+		let _currentColor = true;
+		let _colorToggled = true;
+		
+		let _horizontalChange = false;
+		let _verticalChange	  = false;
+		
+		return this;
+	}
+	
+	method void processKeyPress() {
+	
+		// ENTER button
+		//if ( _keyPressed = 128 ) { let _pause = ~ _pause; }
+		
+		// RIGHT ARROW
+		if ( _keyPressed = 132 ) {
+		
+			if ( ~ _goingRight ) {
+			
+				let _goingRight = true;  
+				let _horizontalChange = true; 
+			}
+			
+			return;
+		}
+		
+		// LEFT ARROW
+		if ( _keyPressed = 130 ) { 
+			
+			if ( _goingRight ) {
+			
+				let _goingRight = false; 
+				let _horizontalChange = true; 
+			}
+			
+			return;
+		
+		}
+		
+		// UP ARROW
+		if ( _keyPressed = 131 ) { 
+			
+			if ( ~ _growLine ) {
+			
+				let _growLine = true;  
+				let _verticalChange	= true; 
+				
+			}
+			
+			return;
+		
+		}
+		
+		// DOWN ARROW
+		if ( _keyPressed = 133 ) { 
+			
+			if ( _growLine ) {
+			
+				let _growLine = false;
+				let _verticalChange	= true; 
+				
+			}
+			
+			return;
+		}
+		
+		// c key
+		if ( _keyPressed = 67 ) {
+			
+			let _currentColor = ~ _currentColor;
+			let _colorToggled = true;
+			
+			return;
+		}
+		
+		return;
+	}
+	
+	method void run() {
+		
+		while ( true ) {
+		
+			let _keyPressed = Keyboard.keyPressed();
+			do processKeyPress();
+			
+			if ( ~ _pause ) {
+			
+				if ( _horizontalChange ) {
+					do _linePaint.toggleDirection();
+					let _horizontalChange = false;
+				}
+				
+				if ( _verticalChange ) {
+					do _linePaint.toggleGrowShrink();
+					let _verticalChange = false;
+				}
+				
+				if ( _colorToggled ) {
+					do _linePaint.setColor(_currentColor);
+					let _colorToggled = false;
+				}
+				
+				do _linePaint.paint();
+				
+				do _linePaint.moveX();
+				do _linePaint.changeY();
+				
+			}
+			
+			do Sys.wait(_delay);
+			
+		}
+		
+		return;
+	}
+	
+	method void dispose() {
+		do Memory.deAlloc(this);
+		return;
+	}
+}

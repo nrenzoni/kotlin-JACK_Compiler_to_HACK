@@ -1,0 +1,169 @@
+class LinePaintJob {
+	
+	field boolean _blackPaint;
+	field boolean _prevBlackPaint;
+	field boolean _incrementX;
+	field boolean _growSize;
+	
+	field int _xPos;
+	field int _maxX;
+	field int _origLowY;
+	field int _origHighY;
+	field int _curLowY;
+	field int _curHighY;
+	
+	constructor LinePaintJob new(int xPos, int maxX, int lowY, int highY) {
+		let _xPos = xPos;
+		let _maxX = maxX;
+		
+		let _origLowY = lowY;
+		let _origHighY = highY;
+		
+		let _curLowY = lowY;
+		let _curHighY = highY;
+		
+		let _blackPaint = true;
+		let _prevBlackPaint = true;
+		
+		let _incrementX = true;
+		let _growSize = false;
+		
+		return this;
+	}
+	
+	method void goingRight() {
+		let _incrementX = true;
+		return;
+	}
+	
+	method void goingLeft() {
+		let _incrementX = false;
+		return;
+	}
+	
+	method void toggleDirection() {
+		let _incrementX = ~ _incrementX;
+		return;
+	}
+	
+	// for internal use only (no bounds check)
+	method void shrinkLine() {
+	
+		let _curLowY  = _curLowY + 1;
+		let _curHighY = _curHighY - 1;
+		return;
+	}
+	
+	// for internal use only (no bounds check)
+	method void growLine() {
+		
+		let _curLowY  = _curLowY - 1;
+		let _curHighY = _curHighY + 1;
+		return;
+	}
+	
+	method void resetLineHeight() {
+		let _curLowY = _origLowY;
+		let _curHighY = _origHighY;
+		return;
+	}
+	
+	method void toggleGrowShrink() {
+		let _growSize = ~ _growSize;
+		return;
+	}
+	
+	method void changeY() {
+		
+		if ( _growSize ) {
+		
+			if ( (_curLowY > _origLowY) & (_curHighY < _origHighY) ) {
+				// can grow
+				do growLine();
+				return;
+			}
+			
+			// else
+			let _growSize = false;
+			do shrinkLine();
+			return;
+		}
+		
+		// _growSize == false ; shrink
+		
+		// can shrink
+		if ( _curLowY < _curHighY ) {
+			do shrinkLine();
+			return;
+		}
+		
+		// else
+		let _growSize = true;
+		do growLine();
+		return;
+		
+	}
+	
+	method void moveX() {
+		
+		if ( _incrementX ) {
+		
+			if ( _xPos = _maxX ) {
+				let _incrementX = false;
+				let _xPos = _xPos - 1;
+				return;
+			}
+			
+			// else
+			let _xPos = _xPos + 1;
+			return;
+		}
+		
+		// _incrementX == false
+		
+		if ( _xPos = 0 ) {
+			let _incrementX = true;
+			let _xPos = _xPos + 1;
+			return;
+		}
+		
+		// else
+		
+		let _xPos = _xPos - 1;
+		return;
+		
+	}
+	
+	method void setColor(boolean c) {
+		let _blackPaint = c;
+		return;
+	}
+	
+	method void paint() {
+	
+		if ( _blackPaint ) {
+		
+			if ( ~ _prevBlackPaint ) {
+				do Screen.setColor(true);
+				let _prevBlackPaint = true;
+			}
+			
+			do Screen.drawLine(_xPos, _curLowY, _xPos, _curHighY);
+			return;
+		}
+		
+		// _blackPaint == false
+		if ( _prevBlackPaint ) {
+			do Screen.setColor(false);
+			let _prevBlackPaint = false;
+		}
+		
+		do Screen.drawLine(_xPos, _curLowY, _xPos, _curHighY);
+		return;
+	}
+	
+	method void dispose() {
+		do Memory.deAlloc(this);
+		return;
+	}
+}
