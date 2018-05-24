@@ -1,4 +1,4 @@
-package FileAndDirectory
+package Misc
 
 import java.io.File
 import java.nio.file.Files
@@ -8,7 +8,7 @@ import java.nio.file.Paths
  * Created by (442377900) on 28-Feb-18.
  */
 
-// FileAndDirectory.MyDirectory and FileAndDirectory.MyFile implement this
+// Misc.MyDirectory and Misc.MyFile implement this
 interface MyDirFile {
     val name: String
 }
@@ -27,7 +27,7 @@ class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
     }
 }
 
-// custom iterator for returning FileAndDirectory.MyFile objects of files and sub-directories in parent directory
+// custom iterator for returning Misc.MyFile objects of files and sub-directories in parent directory
 private class MyDirectoryIterator(val dirName: String): Iterator<MyDirFile> {
     val dirContent = File(dirName).walk()
     // start curIndex at 1 since index 0 is directory itself

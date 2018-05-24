@@ -1,6 +1,6 @@
 package BackEnd
 
-import FileAndDirectory.ReadFile
+import Misc.ReadFile
 
 /**
  * Created by (442377900) on 06-Mar-18.
