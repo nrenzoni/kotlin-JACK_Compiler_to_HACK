@@ -49,11 +49,14 @@ enum class TOKEN_TYPE {
 }
 
 // abstract syntax tree of tokens
+// composite pattern
 interface TokenAST {
     val nodeType : TOKEN_TYPE
 }
 
-open class TokenBase(override val nodeType: TOKEN_TYPE) : TokenAST
+open class TokenBase(override val nodeType: TOKEN_TYPE) : TokenAST {
+    override fun toString(): String = nodeType.toString();
+}
 
 class Token(val tokenType: TOKEN_TYPE, val body: String): TokenBase(tokenType) {
     override fun toString(): String {
@@ -83,5 +86,38 @@ class TokenWithChildren(val headNode: TokenBase, vararg childrenNodes: TokenAST?
             }
         }
     }
+
+    // no trailing new line char
+    override fun toString(): String {
+        val tmpStr: StringBuilder = StringBuilder()
+        tmpStr.append( "<$headNode>\n" )
+        for (child in childNodes) {
+            tmpStr.append( "$child\n" )
+        }
+        tmpStr.append( "</$headNode>" )
+        return tmpStr.toString()
+    }
 }
 
+// recursive print function on Token AST
+fun tokenASTPrinter(ast: TokenAST, indentCount: Int = 0): String {
+
+    val tmpStr: StringBuilder = StringBuilder()
+    val indentStr = "  ".repeat(indentCount)
+
+    when (ast) {
+        is TokenWithChildren -> {
+            tmpStr.append( indentStr + "<${ast.nodeType}>\n" )
+            for (child in ast.childNodes) {
+                val subVal = tokenASTPrinter(child, indentCount+1)
+                tmpStr.append( subVal )
+            }
+            tmpStr.append( indentStr + "</${ast.nodeType}>\n" )
+        }
+        is Token -> {
+            tmpStr.append( indentStr + ast + "\n" )
+        }
+    }
+
+    return tmpStr.toString()
+}

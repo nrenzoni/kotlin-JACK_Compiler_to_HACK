@@ -67,6 +67,8 @@ class ReadFile(override var name: String) : MyFile(name) {
         super.lineCount = 1 + fileContentLines.count()
     }
 
+    val nameWithoutExtension: String = name.substringBeforeLast(".")
+
     // http://kotlination.com/kotlin/read-file-kotlin (method 1.2)
     private fun readInFile() {
         File(name).bufferedReader().useLines {

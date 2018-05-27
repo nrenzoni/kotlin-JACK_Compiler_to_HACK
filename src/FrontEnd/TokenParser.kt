@@ -8,13 +8,15 @@ import Misc.toArr
 
 class TokenParser(private val tokenIter: TokenIterator) {
 
-    var parsedAST: TokenAST? = null
-        private set
-        get() {
-            if (field == null)
-                parsedAST = parse()
-            return field
-        }
+    val parsedAST: TokenAST
+
+    init {
+        parsedAST = parse()
+    }
+
+    override fun toString(): String {
+        return tokenASTPrinter(parsedAST)
+    }
 
     private fun parse(): TokenAST {
         // all files must start with class declaration
@@ -184,10 +186,9 @@ class TokenParser(private val tokenIter: TokenIterator) {
         var nextTok = tokenIter.getNextTokOrThrowExcp()
 
         while (grammarMatch(nextTok,",", false)) {
-            val varNameTok = tokenIter.getNextTokOrThrowExcp()
-            grammarMatch(varNameTok, r_varName)
+            val varNameTok2AST = varNameRule()
             variableLenOptionalParams.add(nextTok) // adds the comma
-            variableLenOptionalParams.add(varNameTok)
+            variableLenOptionalParams.add(varNameTok2AST)
             nextTok = tokenIter.getNextTokOrThrowExcp()
         }
 
