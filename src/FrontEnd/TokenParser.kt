@@ -99,14 +99,14 @@ class TokenParser(private val tokenIter: TokenIterator) {
 
         val parameterListAST = parameterListRule()
 
-        val rightParanthesisTok = tokenIter.getNextTokOrThrowExcp()
-        grammarMatch(rightParanthesisTok, "\\)")
+        val rightParenthesisTok = tokenIter.getNextTokOrThrowExcp()
+        grammarMatch(rightParenthesisTok, "\\)")
 
         val subroutineBodyAST = subroutineBodyRule()
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.SUBROUTINE_DECL), t1, t2,
+        return TokenWithChildren(TokenBase(TOKEN_TYPE.SUBROUTINE_DEC), t1, t2,
                 subroutineNameAST, leftParenthesisTok, parameterListAST,
-                rightParanthesisTok, subroutineBodyAST)
+                rightParenthesisTok, subroutineBodyAST)
     }
 
     private fun parameterListRule(): TokenAST {
@@ -194,7 +194,7 @@ class TokenParser(private val tokenIter: TokenIterator) {
 
         grammarMatch(nextTok, ";")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.VAR_DECL), varTok, typeAST, varNameAST,
+        return TokenWithChildren(TokenBase(TOKEN_TYPE.VAR_DEC), varTok, typeAST, varNameAST,
                 *variableLenOptionalParams.toArr(), nextTok)
     }
 
@@ -493,7 +493,7 @@ class TokenParser(private val tokenIter: TokenIterator) {
         // expression list is blank
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
-            return TokenWithChildren(TokenBase(TOKEN_TYPE.EXPRESSION_LIST))
+            return TokenBase(TOKEN_TYPE.EXPRESSION_LIST)
         }
 
         val variableLenOptionalParams: ArrayList<TokenAST> = ArrayList()

@@ -15,10 +15,10 @@ enum class TOKEN_TYPE {
     CLASS               { override fun toString() = printHelper(name) },
     CLASS_VAR_DEC       { override fun toString() = printHelper(name) },
     TYPE                { override fun toString() = printHelper(name) },
-    SUBROUTINE_DECL     { override fun toString() = printHelper(name) },
+    SUBROUTINE_DEC      { override fun toString() = printHelper(name) },
     PARAMETER_LIST      { override fun toString() = printHelper(name) },
     SUBROUTINE_BODY     { override fun toString() = printHelper(name) },
-    VAR_DECL            { override fun toString() = printHelper(name) },
+    VAR_DEC             { override fun toString() = printHelper(name) },
     CLASS_NAME          { override fun toString() = printHelper(name) },
     SUBROUTINE_NAME     { override fun toString() = printHelper(name) },
     VAR_NAME            { override fun toString() = printHelper(name) },
@@ -55,7 +55,7 @@ interface TokenAST {
 }
 
 open class TokenBase(override val nodeType: TOKEN_TYPE) : TokenAST {
-    override fun toString(): String = nodeType.toString();
+    override fun toString(): String = "$nodeType";
 }
 
 class Token(val tokenType: TOKEN_TYPE, val body: String): TokenBase(tokenType) {
@@ -102,20 +102,39 @@ class TokenWithChildren(val headNode: TokenBase, vararg childrenNodes: TokenAST?
 // recursive print function on Token AST
 fun tokenASTPrinter(ast: TokenAST, indentCount: Int = 0): String {
 
-    val tmpStr: StringBuilder = StringBuilder()
-    val indentStr = "  ".repeat(indentCount)
+    val tmpStr = StringBuilder()
+    val indentStr = " ".repeat(indentCount * 2)
+
+
+    // skip printing parent node if nodeType is one of the following TOKEN_TYPE
+    val skipParentPrint =
+            ast.nodeType in arrayOf(TOKEN_TYPE.STATEMENT, TOKEN_TYPE.CLASS_NAME, TOKEN_TYPE.SUBROUTINE_NAME,
+                            TOKEN_TYPE.TYPE, TOKEN_TYPE.VAR_NAME, TOKEN_TYPE.SUBROUTINE_CALL)
+
+    // if not printing parent, then don't increment sub-indent by 1
+    val subIndent =
+        if (skipParentPrint)
+            indentCount
+        else
+            indentCount + 1
 
     when (ast) {
         is TokenWithChildren -> {
-            tmpStr.append( indentStr + "<${ast.nodeType}>\n" )
+            if (!skipParentPrint)
+                tmpStr.append(indentStr + "<${ast.nodeType}>\n")
             for (child in ast.childNodes) {
-                val subVal = tokenASTPrinter(child, indentCount+1)
-                tmpStr.append( subVal )
+                val subVal = tokenASTPrinter(child, subIndent)
+                tmpStr.append(subVal)
             }
-            tmpStr.append( indentStr + "</${ast.nodeType}>\n" )
+            if (!skipParentPrint)
+                tmpStr.append( indentStr + "</${ast.nodeType}>\n" )
         }
         is Token -> {
             tmpStr.append( indentStr + ast + "\n" )
+        }
+        is TokenBase -> {
+            tmpStr.append( indentStr + "<$ast>\n" )
+            tmpStr.append( indentStr + "</$ast>\n" )
         }
     }
 
