@@ -1,5 +1,6 @@
 package FrontEnd
 import Misc.ReadFile
+import Misc.generateXmlTag
 
 /**
  * Created by (442377900) on 14-May-18.
@@ -13,7 +14,7 @@ val SYMBOLS: List<Char> = listOf('{', '}', '(', ')', '[', ']', '.', ',',
         ';', '+', '-', '*', '/', '&', '|', '<', '>', '=', '~')
 
 // _ or abc char
-val IDCHARS: List<Char> = listOf('a'..'z','A'..'Z').flatten() + '_'
+val IDCHARS: List<Char> = listOf('a'..'z','A'..'Z', '0'..'9').flatten() + '_'
 
 val SKIPCHARS: List<Char> = listOf(' ', '\n', '\t')
 
@@ -70,10 +71,10 @@ class Tokenizer(private val file: ReadFile) : Iterable<Token> {
 
             when (currChar) {
 
-                // is _ or abcABC char
-                in IDCHARS -> keywordOrId()
-
                 in '0'..'9' -> integerConstant()
+
+                // is _, abcABC char, or 0..9
+                in IDCHARS -> keywordOrId()
 
                 '/' -> {
                     if (nextChar == '/') {

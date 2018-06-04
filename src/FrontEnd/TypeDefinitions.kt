@@ -4,7 +4,6 @@ package FrontEnd
  * Created by (442377900) on 24-May-18.
  */
 
-
 enum class TOKEN_TYPE {
     KEYWORD             { override fun toString() = printHelper(name) },
     IDENTIFIER          { override fun toString() = printHelper(name) },
@@ -48,8 +47,45 @@ enum class TOKEN_TYPE {
     }
 }
 
+enum class ID_KIND {
+    STATIC { override fun toString(): String = "static" },
+    FIELD  { override fun toString(): String = "this" },
+    ARG    { override fun toString(): String = "argument" },
+    VAR    { override fun toString(): String = "local" }
+}
+
+enum class FUNCTION_SCOPE {
+    CONSTRUCTOR,
+    FUNCTION,
+    METHOD
+}
+
+enum class UNARY_OP {
+    MINUS,
+    TILDA
+}
+
+enum class BINARY_OP {
+    PLUS,
+    MINUS,
+    MULTIPLY,
+    DIVIDE,
+    AND,
+    OR,
+    LESS_THAN,
+    GREATER_THAN,
+    EQUALS
+}
+
+enum class KEYWORD {
+    TRUE,
+    FALSE,
+    NULL,
+    THIS
+}
+
 // abstract syntax tree of tokens
-// composite pattern
+// using composite pattern
 interface TokenAST {
     val nodeType : TOKEN_TYPE
 }
@@ -72,22 +108,9 @@ class Token(val tokenType: TOKEN_TYPE, val body: String): TokenBase(tokenType) {
     }
 }
 
-class TokenWithChildren(val headNode: TokenBase, vararg childrenNodes: TokenAST?) : TokenAST {
-    override val nodeType = headNode.nodeType
+/*
+    // TokenWithChildren printFunction
 
-    val childNodes = ArrayList<TokenAST>()
-    val childCount: Int
-        get() = childNodes.size
-
-    init {
-        for (n in childrenNodes) {
-            if (n != null) {
-                childNodes.add(n)
-            }
-        }
-    }
-
-    // no trailing new line char
     override fun toString(): String {
         val tmpStr: StringBuilder = StringBuilder()
         tmpStr.append( "<$headNode>\n" )
@@ -97,8 +120,55 @@ class TokenWithChildren(val headNode: TokenBase, vararg childrenNodes: TokenAST?
         tmpStr.append( "</$headNode>" )
         return tmpStr.toString()
     }
-}
+*/
 
+class ClassToken(val className: String, val classVarDecList: ArrayList<ClassVarDecToken>,
+                 val subroutineDecList: ArrayList<SubroutineDec>)
+
+class ClassVarDecToken(val idKind: ID_KIND, val idType: String,
+                       val varNameList: ArrayList<String>)
+
+class SubroutineDec(val functionScope: FUNCTION_SCOPE, val returnType: String, val name: String,
+                    val parameterList: ArrayList<Parameter>, val subroutineBody: SubroutineBody)
+
+class Parameter(val type: String, val name: String)
+
+class SubroutineBody(val varDecList: ArrayList<VarDec>, val statementList: ArrayList<Statement>)
+
+class VarDec(val type: String, val nameList: ArrayList<String>)
+
+interface Statement
+
+class LetStatement(val varName: String, val arrayExpression: ExpressionTree?,
+                   val rightSideExpression: ExpressionTree): Statement
+
+class IfStatement(val conditionExpression: ExpressionTree, val bodyStatementsList: ArrayList<Statement>,
+                  val elseStatementsList: ArrayList<Statement>?) : Statement
+
+class WhileStatement(val conditionExpression: ExpressionTree, val bodyStatementsList: ArrayList<Statement>): Statement
+
+class DoStatement(val subroutineCall: SubroutineCall): Statement
+
+class ReturnStatement(val optionalExpression: ExpressionTree?): Statement
+
+class SubroutineCall(val classNameVarName: String?, val subroutineName: String,
+                     val expressionList: ArrayList<ExpressionTree>) : Term
+
+// first element in expressionTreeChildList is always a Term
+class ExpressionTree(val expressionTreeChildList: ArrayList<ExpressionTreeChild>): Term
+
+interface ExpressionTreeChild
+class Op(val operator: BINARY_OP) : ExpressionTreeChild
+interface Term: ExpressionTreeChild
+
+class IntegerConstant(val integerConstant: Int): Term
+class StringConstant(val string: String): Term
+class KeywordConstant(val keywordConstant: KEYWORD): Term
+class VarNameWithArray(val varName: String, val optionalArrayExpression: ExpressionTree?): Term
+class UnaryOpTerm(val unaryOp: UNARY_OP, val term: Term): Term
+class VarName(val varName: String): Term
+
+/*
 // recursive print function on Token AST
 fun tokenASTPrinter(ast: TokenAST, indentCount: Int = 0): String {
 
@@ -140,3 +210,4 @@ fun tokenASTPrinter(ast: TokenAST, indentCount: Int = 0): String {
 
     return tmpStr.toString()
 }
+*/

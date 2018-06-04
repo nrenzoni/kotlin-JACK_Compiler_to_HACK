@@ -29,7 +29,7 @@ class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
 
 // custom iterator for returning Misc.MyFile objects of files and sub-directories in parent directory
 private class MyDirectoryIterator(val dirName: String): Iterator<MyDirFile> {
-    val dirContent = File(dirName).walk()
+    val dirContent = File(dirName).walk().maxDepth(1)
     // start curIndex at 1 since index 0 is directory itself
     var curIndex = 1;
     val maxIndex = dirContent.count() - 1
@@ -119,9 +119,14 @@ fun shortenPathName(inPath: String, maxPrintDepth: Int = 3): String {
         inPath
 }
 
+fun MyFile.checkFilenameExtension(extension: String): Boolean {
+    val filenameSplit = this.name.split("\\")
+    return filenameSplit[filenameSplit.size-1].contains(Regex(extension, RegexOption.IGNORE_CASE))
+}
+
 fun checkFilenameExtension(filename: String, extension: String): Boolean {
-    val filename_split = filename.split("")
-    return filename_split[filename_split.size-1].contains(Regex(extension, RegexOption.IGNORE_CASE))
+    val filenameSplit = filename.split("\\")
+    return filenameSplit[filenameSplit.size-1].contains(Regex(extension, RegexOption.IGNORE_CASE))
 }
 
 // returns name without base directory nor extension

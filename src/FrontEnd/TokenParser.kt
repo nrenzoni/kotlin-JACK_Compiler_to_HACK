@@ -1,24 +1,26 @@
 package FrontEnd
 
-import Misc.toArr
-
 /**
  * Created by (442377900) on 18-May-18.
  */
 
-class TokenParser(private val tokenIter: TokenIterator) {
+val typeTable = arrayListOf<String>("int", "char", "boolean")
 
-    val parsedAST: TokenAST
+class TokenParser(private val tokenParser: Tokenizer) {
+
+    val tokenIter = tokenParser.iterator()
+
+    val parsedAST: ClassToken
 
     init {
         parsedAST = parse()
     }
 
-    override fun toString(): String {
+    /*override fun toString(): String {
         return tokenASTPrinter(parsedAST)
-    }
+    }*/
 
-    private fun parse(): TokenAST {
+    private fun parse(): ClassToken {
         // all files must start with class declaration
         val ast = classRule()
         if (tokenIter.hasNext())
@@ -26,24 +28,24 @@ class TokenParser(private val tokenIter: TokenIterator) {
         return ast
     }
 
-    // 'class' className '{' classVarDec* subroutineDec* '}'
-    private fun classRule(): TokenAST {
+    // 'class' className '{' classVarDecList* subroutineDecList* '}'
+    private fun classRule(): ClassToken {
         val classTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(classTok, "class")
 
-        val classNameAST = classNameRule()
+        val className = classNameRule()
 
         val leftBracketTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftBracketTok, Regex.escape("{"))
 
-        val varLenClassVarDecASTs: ArrayList<TokenAST> = arrayListOf()
-        // keep parsing classVarDec grammar elements until no more matches
+        val classVarDecList: ArrayList<ClassVarDecToken> = arrayListOf()
+        // keep parsing classVarDecList grammar elements until no more matches
         var savedState = tokenIter.getCurState()
-        // classVarDec*
+        // classVarDecList*
         try {
             while (true) {
-                val curClassVarDecAST = classVarDecRule()
-                varLenClassVarDecASTs.add(curClassVarDecAST)
+                val curClassVarDec = classVarDecRule()
+                classVarDecList.add(curClassVarDec)
                 savedState = tokenIter.getCurState()
             }
         }
@@ -51,12 +53,12 @@ class TokenParser(private val tokenIter: TokenIterator) {
             tokenIter.restoreState(savedState)
         }
 
-        val varLenSubroutineDecASTs: ArrayList<TokenAST> = arrayListOf()
+        val subroutineDecList: ArrayList<SubroutineDec> = arrayListOf()
         savedState = tokenIter.getCurState()
-        // subroutineDec*
+        // subroutineDecList*
         try {
             while (true) {
-                varLenSubroutineDecASTs.add( subroutineDecRule() )
+                subroutineDecList.add( subroutineDecRule() )
                 savedState = tokenIter.getCurState()
             }
         }
@@ -65,112 +67,121 @@ class TokenParser(private val tokenIter: TokenIterator) {
         }
 
         val rightBracketTok = tokenIter.getNextTokOrThrowExcp()
+        grammarMatch(rightBracketTok, Regex.escape("}"))
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.CLASS), classTok, classNameAST, leftBracketTok,
-                *varLenClassVarDecASTs.toArr(), *varLenClassVarDecASTs.toArr(), rightBracketTok)
+        return ClassToken(className, classVarDecList, subroutineDecList)
+
+//        return TokenWithChildren(TokenBase(TOKEN_TYPE.CLASS), classTok, className, leftBracketTok,
+//                *classVarDecList.toArr(), *classVarDecList.toArr(), rightBracketTok)
     }
 
     // ('static'|'field') type varName (',' varName)* ';'
-    private fun classVarDecRule(): TokenAST {
+    private fun classVarDecRule(): ClassVarDecToken {
         val t1 = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(t1, "(static|field)")
-        val typeAST = typeRule()
-        val varNameAST = varNameRule()
+        val idKind = ID_KIND.valueOf(t1.body.toUpperCase())
+        val idType = typeRule()
+
+        val varNameList = arrayListOf<String>()
+
+        varNameList.add( varNameRule() )
 
         // use list to place elements matching (',' varName)*
         val variableLenOptionalParams: ArrayList<TokenAST> = ArrayList()
         var nextTok = tokenIter.getNextTokOrThrowExcp()
-        while (grammarMatch(nextTok,",")) {
+        while (grammarMatch(nextTok,",", false)) {
             val varNameTok = tokenIter.getNextTokOrThrowExcp()
             grammarMatch(varNameTok, r_varName)
-            variableLenOptionalParams.add(nextTok)
-            variableLenOptionalParams.add(varNameTok)
+            varNameList.add( varNameTok.body )
             nextTok = tokenIter.getNextTokOrThrowExcp()
         }
         grammarMatch(nextTok, ";")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.CLASS_VAR_DEC), t1, typeAST, varNameAST,
-                *variableLenOptionalParams.toArr(), nextTok)
+        return ClassVarDecToken(idKind, idType, varNameList)
     }
 
     // 'int'|'char'|'boolean'|className
-    private fun typeRule(): TokenAST {
+    private fun typeRule(): String {
         val t1 = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(t1, r_type)
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.TYPE), t1)
+        if (t1.body !in typeTable)
+            typeTable.add(t1.body)
+        return t1.body
     }
 
     // ('constructor'|'function'|'method') ('void'|type) subroutineName '(' parameterList ')' subroutineBody
-    private fun subroutineDecRule(): TokenAST {
+    private fun subroutineDecRule(): SubroutineDec {
         val t1 = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(t1, "constructor|function|method")
+        val scope = FUNCTION_SCOPE.valueOf(t1.body.toUpperCase())
 
         val t2 = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(t2, "void|$r_type")
+        val returnType = t2.body
 
-        val subroutineNameAST = subroutineNameRule()
+        val subroutineName = subroutineNameRule()
 
         val leftParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftParenthesisTok, "\\(")
 
-        val parameterListAST = parameterListRule()
+        val parameterList = parameterListRule()
 
         val rightParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(rightParenthesisTok, "\\)")
 
-        val subroutineBodyAST = subroutineBodyRule()
+        val subroutineBody = subroutineBodyRule()
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.SUBROUTINE_DEC), t1, t2,
-                subroutineNameAST, leftParenthesisTok, parameterListAST,
-                rightParenthesisTok, subroutineBodyAST)
+        return SubroutineDec(scope, returnType, subroutineName, parameterList, subroutineBody)
     }
 
     // ((type varName) (',' type varName)*)?
-    private fun parameterListRule(): TokenAST {
-        val typeAST: TokenAST
-        val varNameAST: TokenAST
+    private fun parameterListRule(): ArrayList<Parameter> {
+
+        val parameterList = arrayListOf<Parameter>()
         var savedState = tokenIter.getCurState()
         try {
-            typeAST = typeRule()
-            varNameAST = varNameRule()
+            val type = typeRule()
+            val varName = varNameRule()
+            parameterList.add( Parameter(type, varName) )
         }
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
             // empty child list for token AST
-            return TokenBase(TOKEN_TYPE.PARAMETER_LIST)
+            return parameterList // empty
         }
 
-        val variableLenOptionalParams: ArrayList<TokenAST> = ArrayList()
         savedState = tokenIter.getCurState()
         // (',' type varName)*
         try {
-            val commaTok = tokenIter.getNextTokOrThrowExcp()
-            grammarMatch(commaTok, ",")
-            val curTypeAST = typeRule()
-            val curVarNameAST = varNameRule()
-            variableLenOptionalParams.add(commaTok) // comma token
-            variableLenOptionalParams.add(curTypeAST)
-            variableLenOptionalParams.add(curVarNameAST)
-            savedState = tokenIter.getCurState()
+            while (true) {
+                val commaTok = tokenIter.getNextTokOrThrowExcp()
+                grammarMatch(commaTok, ",")
+                val curType = typeRule()
+                val curVarName = varNameRule()
+                parameterList.add(Parameter(curType, curVarName))
+                savedState = tokenIter.getCurState()
+            }
         }
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
         }
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.PARAMETER_LIST), typeAST, varNameAST, *variableLenOptionalParams.toArr())
+        return parameterList
     }
 
     // '{' varDec* statements '}'
-    private fun subroutineBodyRule(): TokenAST {
+    private fun subroutineBodyRule(): SubroutineBody {
+
+        val varDecList = arrayListOf<VarDec>()
+
         val leftBracketTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftBracketTok, "\\{")
 
         // save which token we're at, since if varDec doesn't match, we'll rollback
         var savedState: Int = tokenIter.getCurState()
-        val variableLenVarDecArrList: ArrayList<TokenAST> = ArrayList()
         try {
             while (true) {
-                variableLenVarDecArrList.add( varDecRule() )
+                varDecList.add( varDecRule() )
                 savedState = tokenIter.getCurState()
             }
         }
@@ -179,89 +190,100 @@ class TokenParser(private val tokenIter: TokenIterator) {
             tokenIter.restoreState(savedState)
         }
 
-        val statementsAST = statementsRule()
+        val statementsList = statementsRule()
 
         val rightBracketTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(rightBracketTok, "\\}")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.SUBROUTINE_BODY), leftBracketTok, *variableLenVarDecArrList.toArr(),
-                statementsAST, rightBracketTok)
+        return SubroutineBody(varDecList, statementsList)
     }
 
     // 'var' type varName (',' varName)* ';'
-    private fun varDecRule(): TokenAST {
+    private fun varDecRule(): VarDec {
+        val varNameList = arrayListOf<String>()
+
         val varTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(varTok, "var")
 
-        val typeAST = typeRule()
-        val varNameAST = varNameRule()
+        val idType = typeRule()
+
+        // add first varName
+        varNameList.add( varNameRule() )
 
         // (',' varName)*
         val variableLenOptionalParams: ArrayList<TokenAST> = ArrayList()
         var nextTok = tokenIter.getNextTokOrThrowExcp()
 
         while (grammarMatch(nextTok,",", false)) {
-            val curVarNameAST = varNameRule()
-            variableLenOptionalParams.add(nextTok) // adds the comma
-            variableLenOptionalParams.add(curVarNameAST)
+            varNameList.add( varNameRule() )
             nextTok = tokenIter.getNextTokOrThrowExcp()
         }
 
         grammarMatch(nextTok, ";")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.VAR_DEC), varTok, typeAST, varNameAST,
-                *variableLenOptionalParams.toArr(), nextTok)
+        return VarDec(idType, varNameList)
     }
 
-    private fun singleRightSideRuleHelper(tokType: TOKEN_TYPE, matchStr: String): TokenAST {
+    private fun classNameRule(): String      = getIdStringHelper()
+    private fun subroutineNameRule(): String = getIdStringHelper()
+    private fun varNameRule(): String        = getIdStringHelper()
+
+    // returns string of token if it is an identifier, otherwise throws exception
+    private fun getIdStringHelper(): String {
         val t1 = tokenIter.getNextTokOrThrowExcp()
-        grammarMatch(t1, matchStr)
-        return TokenWithChildren(TokenBase(tokType), t1)
+        grammarMatch(t1, l_identifier)
+        return t1.body
     }
-
-    // identifier
-    private fun classNameRule(): TokenAST = singleRightSideRuleHelper(TOKEN_TYPE.CLASS_NAME, l_identifier)
-
-    // identifier
-    private fun subroutineNameRule(): TokenAST = singleRightSideRuleHelper(TOKEN_TYPE.SUBROUTINE_NAME, l_identifier)
-
-    // identifier
-    private fun varNameRule(): TokenAST = singleRightSideRuleHelper(TOKEN_TYPE.VAR_NAME, l_identifier)
 
     // statement*
-    private fun statementsRule(): TokenAST {
-        val variableLenStatementParams: ArrayList<TokenAST> = ArrayList()
+    private fun statementsRule(): ArrayList<Statement> {
+
+        val statementList = arrayListOf<Statement>()
+
         var savedState = tokenIter.getCurState()
         try {
             // interpret as many statement(s) as possible until exception thrown
             while (true) {
-                variableLenStatementParams.add(statementRule())
+                statementList.add( statementRule() )
                 savedState = tokenIter.getCurState()
             }
         }
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
         }
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.STATEMENTS), *variableLenStatementParams.toArr())
+        return statementList
     }
 
     // letStatement | ifStatement | whileStatement | doStatement | returnStatement
-    private fun statementRule() : TokenAST {
-        var t1: TokenAST?
+    private fun statementRule() : Statement {
+        var t1: Statement?
 
-        t1 = tryCatchRollback(TOKEN_TYPE.STATEMENT, this::letStatementRule)
+        // if ruleFunc on next token throws exception, roll back iterator, return null; else return tokenAST with
+        // returned AST from ruleFunc
+        fun <E> tryCatchRollback(ruleFunc: () -> E): E? {
+            val savedState = tokenIter.getCurState()
+            return try {
+                ruleFunc()
+            }
+            catch (e: Exception) {
+                tokenIter.restoreState(savedState)
+                null
+            }
+        }
+
+        t1 = tryCatchRollback(this::letStatementRule)
         if (t1 != null) return t1
 
-        t1 = tryCatchRollback(TOKEN_TYPE.STATEMENT, this::ifStatementRule)
+        t1 = tryCatchRollback(this::ifStatementRule)
         if (t1 != null) return t1
 
-        t1 = tryCatchRollback(TOKEN_TYPE.STATEMENT, this::whileStatementRule)
+        t1 = tryCatchRollback(this::whileStatementRule)
         if (t1 != null) return t1
 
-        t1 = tryCatchRollback(TOKEN_TYPE.STATEMENT, this::doStatementRule)
+        t1 = tryCatchRollback(this::doStatementRule)
         if (t1 != null) return t1
 
-        t1 = tryCatchRollback(TOKEN_TYPE.STATEMENT, this::returnStatementRule)
+        t1 = tryCatchRollback(this::returnStatementRule)
         if (t1 != null) return t1
 
         // if no matches, raise exception
@@ -269,102 +291,98 @@ class TokenParser(private val tokenIter: TokenIterator) {
     }
 
     // 'let' varName  ('[' expression ']')? '=' expression ';'
-    private fun letStatementRule(): TokenAST {
+    private fun letStatementRule(): LetStatement {
         val letTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(letTok, "let")
-        val varNameAST = varNameRule()
+        val varName = varNameRule()
 
         var nextTok = tokenIter.getNextTokOrThrowExcp()
 
-        var optionalExpressionParamList: Array<TokenAST> = arrayOf()
+        var optionalArrayExpression: ExpressionTree? = null
         if (grammarMatch(nextTok, "\\[", false)) {
-            val expressionAST = expressionRule()
+            val expression = expressionRule()
             val rightBracketTok = tokenIter.getNextTokOrThrowExcp()
             grammarMatch(rightBracketTok, "\\]")
-            optionalExpressionParamList = arrayOf(nextTok, expressionAST, rightBracketTok)
+            optionalArrayExpression = expression
             nextTok = tokenIter.getNextTokOrThrowExcp()
         }
         grammarMatch(nextTok, "=")
-        val expression2AST = expressionRule()
+        val rightHandExpression = expressionRule()
         val semicolonTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(semicolonTok, ";")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.LET_STATEMENT), letTok, varNameAST, *optionalExpressionParamList,
-                nextTok, expression2AST, semicolonTok)
+        return LetStatement(varName, optionalArrayExpression, rightHandExpression)
     }
 
     // 'if' '(' expression ')' '{' statements '}' ('else' '{' statements '}')?
-    private fun ifStatementRule() : TokenAST {
+    private fun ifStatementRule() : IfStatement {
         val ifTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(ifTok, "if")
         val leftParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftParenthesisTok, "\\(")
-        val expressionAST = expressionRule()
+        val conditionExpression = expressionRule()
         val rightParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(rightParenthesisTok, "\\)")
         val leftBracketTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftBracketTok, "\\{")
-        val statementsAST = statementsRule()
+        val bodyStatementsList = statementsRule()
         val rightBracketTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(rightBracketTok, "\\}")
 
-        var optionalElseParamArr: Array<TokenAST> = arrayOf()
+        var optionalElseStatementsList: ArrayList<Statement>? = null
         val savedState = tokenIter.getCurState()
         val nextTok = tokenIter.getNextTokOrThrowExcp()
         if(grammarMatch(nextTok, "else",false)) {
             val t1 = tokenIter.getNextTokOrThrowExcp()
             grammarMatch(t1, "\\{")
-            val elseStatementsAST = statementsRule()
+            optionalElseStatementsList = statementsRule()
             val t2 = tokenIter.getNextTokOrThrowExcp()
             grammarMatch(t2, "\\}")
-            optionalElseParamArr = arrayOf(nextTok, t1, elseStatementsAST, t2)
         }
         else
             tokenIter.restoreState(savedState)
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.IF_STATEMENT), ifTok, leftParenthesisTok, expressionAST,
-                rightParenthesisTok, leftBracketTok, statementsAST, rightBracketTok, *optionalElseParamArr)
+        return IfStatement(conditionExpression, bodyStatementsList, optionalElseStatementsList)
     }
 
     // 'while' '(' expression ')' '{' statements '}'
-    private fun whileStatementRule() : TokenAST {
+    private fun whileStatementRule() : WhileStatement {
         val whileTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(whileTok, "while")
         val leftParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftParenthesisTok, "\\(")
-        val expressionAST = expressionRule()
+        val conditionExpression = expressionRule()
         val rightParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(rightParenthesisTok, "\\)")
         val leftBracketTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftBracketTok, "\\{")
-        val statementsAST = statementsRule()
+        val bodyStatementsList = statementsRule()
         val rightBracketTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(rightBracketTok, "\\}")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.WHILE_STATEMENT), whileTok, leftParenthesisTok,
-                expressionAST, rightParenthesisTok, leftBracketTok, statementsAST, rightBracketTok)
+        return WhileStatement(conditionExpression, bodyStatementsList)
     }
 
     // 'do' subroutineCall ';'
-    private fun doStatementRule(): TokenAST {
+    private fun doStatementRule(): DoStatement {
         val doTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(doTok, "do")
-        val subroutineCallAST = subroutineCallRule()
+        val subroutineCall = subroutineCallRule()
         val semicolonTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(semicolonTok, ";")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.DO_STATEMENT), doTok, subroutineCallAST, semicolonTok)
+        return DoStatement(subroutineCall)
     }
 
     // 'return' expression? ';'
-    private fun returnStatementRule() : TokenAST {
+    private fun returnStatementRule() : ReturnStatement {
         val returnTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(returnTok, "return")
 
         val savedState = tokenIter.getCurState()
-        var optionalExpression: Array<TokenAST> = arrayOf()
+        var optionalExpression: ExpressionTree? = null
         try {
-            optionalExpression = arrayOf( expressionRule() )
+            optionalExpression = expressionRule()
         }
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
@@ -372,23 +390,23 @@ class TokenParser(private val tokenIter: TokenIterator) {
         val semicolonTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(semicolonTok, ";")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.RETURN_STATEMENT), returnTok, *optionalExpression,
-                semicolonTok)
+        return ReturnStatement(optionalExpression)
     }
 
     // term (op term)*
-    private fun expressionRule(): TokenAST {
-        val termAST = termRule()
+    private fun expressionRule(): ExpressionTree {
+        val expressionChildList: ArrayList<ExpressionTreeChild> = arrayListOf()
+
+        expressionChildList.add( termRule() )
 
         // (op term)*
-        val optionalTerms: ArrayList<TokenAST> = arrayListOf()
         var savedState = tokenIter.getCurState()
         try {
             while (true) {
                 val curOpAST = opRule()
-                val curTermAST = termRule()
-                optionalTerms.add(curOpAST)
-                optionalTerms.add(curTermAST)
+                val curTerm = termRule()
+                expressionChildList.add( curOpAST )
+                expressionChildList.add(curTerm)
                 savedState = tokenIter.getCurState()
             }
         }
@@ -397,60 +415,50 @@ class TokenParser(private val tokenIter: TokenIterator) {
             tokenIter.restoreState(savedState)
         }
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.EXPRESSION), termAST, *optionalTerms.toArr())
+        return ExpressionTree(expressionChildList)
     }
 
-    // if ruleFunc on next token throws exception, roll back iterator, return null; else return tokenAST with
-    // returned AST from ruleFunc
-    private fun tryCatchRollback(tokenASTHeadName: TOKEN_TYPE, ruleFunc: () -> TokenAST): TokenAST? {
-        val savedState = tokenIter.getCurState()
-        return try {
-            TokenWithChildren(TokenBase(tokenASTHeadName), ruleFunc())
-        }
-        catch (e: Exception) {
-            tokenIter.restoreState(savedState)
-            null
-        }
-    }
-
-    // integerConstant | stringConstant | keywordConstant | varName ('[' expression ']')? | subroutineCall
+    // integerConstant | string | keywordConstant | varName ('[' expression ']')? | subroutineCall
     // | '(' expression ')' | unaryOp term
-    private fun termRule(): TokenAST {
-        var t1AST: TokenAST?
+    private fun termRule(): Term {
+        var savedState = tokenIter.getCurState()
+        try { return integerConstantRule() }
+        catch (e: Exception) { tokenIter.restoreState(savedState) }
 
-        t1AST = tryCatchRollback(TOKEN_TYPE.TERM, this::integerConstantRule)
-        if (t1AST != null) return t1AST
+        savedState = tokenIter.getCurState()
+        try { return subroutineCallRule() }
+        catch (e: Exception) { tokenIter.restoreState(savedState) }
 
-        t1AST = tryCatchRollback(TOKEN_TYPE.TERM, this::subroutineCallRule)
-        if (t1AST != null) return t1AST
+        savedState = tokenIter.getCurState()
+        try { return stringConstantRule() }
+        catch (e: Exception) { tokenIter.restoreState(savedState) }
 
-        t1AST = tryCatchRollback(TOKEN_TYPE.TERM, this::stringConstantRule)
-        if (t1AST != null) return t1AST
-
-        t1AST = tryCatchRollback(TOKEN_TYPE.TERM, this::keywordConstantRule)
-        if (t1AST != null) return t1AST
+        savedState = tokenIter.getCurState()
+        try { return keywordConstantRule() }
+        catch (e: Exception) { tokenIter.restoreState(savedState) }
 
         // varName ( '[' expression ']' )?
-        var savedState = tokenIter.getCurState()
+        savedState = tokenIter.getCurState()
         try {
-            t1AST = varNameRule() // catch exception from here on grammar mismatch
+            val varName = varNameRule() // catch exception from here on grammar mismatch
             if (tokenIter.hasNext()) {
                 savedState = tokenIter.getCurState()
                 val t2 = tokenIter.next()
                 if (grammarMatch(t2,"\\[",false)) {
-                    val t3ExpressionAST = expressionRule()
+                    val arrayExpression = expressionRule()
                     val t4 = tokenIter.getNextTokOrThrowExcp()
                     grammarMatch(t4, "\\]")
-                    return TokenWithChildren(TokenBase(TOKEN_TYPE.TERM), t1AST, t2, t3ExpressionAST, t4)
+                    return VarNameWithArray(varName, arrayExpression)
                 }
                 // disregard token read into t2 ( != "[" )
-                else
+                else {
                     tokenIter.restoreState(savedState)
+                }
             }
             // no opening [ after varName
-            return TokenWithChildren(TokenBase(TOKEN_TYPE.TERM), t1AST)
+            return VarName(varName)
         }
-        // exception exception: from t1AST = varNameRule(); however, exception could also be thrown from other
+        // exception: from firstTerm = varNameRule(); however, exception could also be thrown from other
         // following function calls in try block. Solution = create exception type for each rule
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
@@ -459,9 +467,9 @@ class TokenParser(private val tokenIter: TokenIterator) {
         // unaryOp term
         savedState = tokenIter.getCurState()
         try {
-            t1AST = unaryOpRule() // only catch exception thrown from here
-            val t2 = termRule()
-            return TokenWithChildren(TokenBase(TOKEN_TYPE.TERM), t1AST, t2)
+            val unaryOp = unaryOpRule() // only catch exception thrown from here
+            val term = termRule()
+            return UnaryOpTerm(unaryOp, term)
         }
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
@@ -470,27 +478,26 @@ class TokenParser(private val tokenIter: TokenIterator) {
         // '(' expression ')'
         val leftParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftParenthesisTok, "\\(")
-        val expressionAST = expressionRule()
+        val expression = expressionRule()
         val rightParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(rightParenthesisTok, "\\)")
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.TERM), leftParenthesisTok, expressionAST,
-                rightParenthesisTok)
+        return expression
     }
 
-    // subroutineName '(' expressionList ')' | (className | varName) '.' subroutineName '(' expressionList ')'
-    private fun subroutineCallRule(): TokenAST {
+    // 2 options:
+    // option 1:    subroutineName '(' expressionList ')'
+    // option 2:    (className | varName) '.' subroutineName '(' expressionList ')'
+    private fun subroutineCallRule(): SubroutineCall {
         val savedState = tokenIter.getCurState()
-        // subroutineName '(' expressionList ')'
+        // option 1:    subroutineName '(' expressionList ')'
         try {
-            val subroutineNameAST = subroutineNameRule()
-            val leftParanthesisTok = tokenIter.getNextTokOrThrowExcp()
-            grammarMatch(leftParanthesisTok, "\\(") // catch exception thrown from here if nexTok == '.'
-            val expressionListAST = expressionListRule()
-            val rightParanthesisTok = tokenIter.getNextTokOrThrowExcp()
-            grammarMatch(rightParanthesisTok, "\\(")
-
-            return TokenWithChildren(TokenBase(TOKEN_TYPE.SUBROUTINE_CALL), subroutineNameAST, leftParanthesisTok,
-                    expressionListAST, rightParanthesisTok)
+            val subroutineName = subroutineNameRule()
+            val leftParenthesisTok = tokenIter.getNextTokOrThrowExcp()
+            grammarMatch(leftParenthesisTok, "\\(") // exception thrown if nexTok == '.'
+            val expressionList = expressionListRule()
+            val rightParenthesisTok = tokenIter.getNextTokOrThrowExcp()
+            grammarMatch(rightParenthesisTok, "\\)")
+            return SubroutineCall(null, subroutineName, expressionList)
         }
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
@@ -501,40 +508,35 @@ class TokenParser(private val tokenIter: TokenIterator) {
         grammarMatch(classOrVarNameTok, "$r_className|$r_varName")
         val dotTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(dotTok, "\\.")
-        val subroutineNameAST = subroutineNameRule()
+        val subroutineName = subroutineNameRule()
         val leftParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(leftParenthesisTok, "\\(")
-        val expressionListAST = expressionListRule()
+        val expressionList = expressionListRule()
         val rightParenthesisTok = tokenIter.getNextTokOrThrowExcp()
         grammarMatch(rightParenthesisTok, "\\)")
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.SUBROUTINE_CALL), classOrVarNameTok,
-                dotTok, subroutineNameAST, leftParenthesisTok, expressionListAST,
-                rightParenthesisTok)
+        return SubroutineCall(classOrVarNameTok.body, subroutineName, expressionList)
     }
 
     // ( expression (',' expression)* )?
-    private fun expressionListRule(): TokenAST {
+    private fun expressionListRule(): ArrayList<ExpressionTree> {
+        val expressionList = arrayListOf<ExpressionTree>()
         var savedState = tokenIter.getCurState()
         val expressionAST : TokenAST
         try {
-            expressionAST = expressionRule()
+            expressionList.add( expressionRule() )
         }
         // expression list is blank
         catch (e: Exception) {
             tokenIter.restoreState(savedState)
-            return TokenBase(TOKEN_TYPE.EXPRESSION_LIST)
+            return expressionList
         }
 
-        val variableLenOptionalParams: ArrayList<TokenAST> = ArrayList()
         try {
             savedState = tokenIter.getCurState()
             var nextTok: Token = tokenIter.getNextTokOrThrowExcp()
             while (grammarMatch(nextTok, ",")) {
-                val curExpressionAST = expressionRule()
-                variableLenOptionalParams.add(nextTok)
-                variableLenOptionalParams.add(curExpressionAST)
-
+                expressionList.add( expressionRule() )
                 savedState = tokenIter.getCurState()
                 nextTok = tokenIter.getNextTokOrThrowExcp()
             }
@@ -543,40 +545,66 @@ class TokenParser(private val tokenIter: TokenIterator) {
             tokenIter.restoreState(savedState)
         }
 
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.EXPRESSION_LIST), expressionAST, *variableLenOptionalParams.toArr())
+        return expressionList
     }
 
     // '+' | '-' | '*' | '/' | '&' | '|' | '<' | '>' | '='
-    private fun opRule(): TokenAST
-            = singleRightSideRuleHelper(TOKEN_TYPE.OP, "\\+|-|\\*|/|&|\\||<|>|=")
+    private fun opRule(): ExpressionTreeChild {
+        return when (tokenIter.getNextTokOrThrowExcp().body) {
+            "+" -> Op( BINARY_OP.PLUS )
+            "-" -> Op( BINARY_OP.MINUS )
+            "*" -> Op( BINARY_OP.MULTIPLY )
+            "/" -> Op( BINARY_OP.DIVIDE )
+            "&" -> Op( BINARY_OP.AND)
+            "|" -> Op( BINARY_OP.OR )
+            "<" -> Op( BINARY_OP.LESS_THAN )
+            ">" -> Op( BINARY_OP.GREATER_THAN )
+            "=" -> Op(BINARY_OP.EQUALS)
+            else -> throw Exception("mismatch in OpRule")
+        }
+    }
 
     // '-' | '~'
-    private fun unaryOpRule(): TokenAST
-            = singleRightSideRuleHelper(TOKEN_TYPE.UNARY_OP, "-|\\+")
+    private fun unaryOpRule(): UNARY_OP {
+        return when (tokenIter.getNextTokOrThrowExcp().body) {
+            "-" -> UNARY_OP.MINUS
+            "~" -> UNARY_OP.TILDA
+            else -> throw Exception("no match in unaryOpRule")
+        }
+    }
 
     // 'true' | 'false' | 'null' | 'this'
-    private fun keywordConstantRule(): TokenAST
-            = singleRightSideRuleHelper(TOKEN_TYPE.KEYWORD_CONSTANT, "true|false|null|this")
+    private fun keywordConstantRule(): KeywordConstant {
+        val keyword: KEYWORD =
+                when (tokenIter.getNextTokOrThrowExcp().body.toLowerCase()) {
+                    "true" -> KEYWORD.TRUE
+                    "false" -> KEYWORD.FALSE
+                    "null" -> KEYWORD.NULL
+                    "this" -> KEYWORD.THIS
+                    else -> throw Exception("no match in keywordConstantRule()")
+        }
+        return KeywordConstant(keyword)
+    }
 
     // decimal number between 0 and 32767
-    private fun integerConstantRule(): TokenAST {
+    private fun integerConstantRule(): IntegerConstant {
         val t1 = tokenIter.getNextTokOrThrowExcp()
         if (t1.tokenType == TOKEN_TYPE.INTEGER_CONSTANT &&
                 t1.body.toInt() in 0..32767)
-            return t1
+            return IntegerConstant(t1.body.toInt())
         else
             throw Exception("number not in valid range 0..32767")
     }
 
     // '"' (a sequence of unicode chars except double-quote and newline) '"'
-    private fun stringConstantRule(): TokenAST {
+    private fun stringConstantRule(): StringConstant {
         val t1 = tokenIter.getNextTokOrThrowExcp()
         if (!Regex("[^\n\"]*").matches(t1.body) || t1.tokenType != TOKEN_TYPE.STRING_CONSTANT)
-            throw Exception("not a stringConstant")
-        return TokenWithChildren(TokenBase(TOKEN_TYPE.STRING_CONSTANT), t1)
+            throw Exception("mismatch in stringConstantRule()")
+        return StringConstant(t1.body)
     }
 
-    // if body in tok matches rule string, returns true, else throws exception unless told not to raise exception, in
+    // if body in token matches rule string, returns true, else throws exception unless told not to raise exception, in
     // which case false is returned
     private fun grammarMatch(tok: Token, rule: String, raiseExceptionOnMismatch: Boolean = true): Boolean {
         if (!Regex(rule).matches(tok.body)) {
