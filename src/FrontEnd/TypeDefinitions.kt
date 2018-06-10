@@ -84,17 +84,7 @@ enum class KEYWORD {
     THIS
 }
 
-// abstract syntax tree of tokens
-// using composite pattern
-interface TokenAST {
-    val nodeType : TOKEN_TYPE
-}
-
-open class TokenBase(override val nodeType: TOKEN_TYPE) : TokenAST {
-    override fun toString(): String = "$nodeType";
-}
-
-class Token(val tokenType: TOKEN_TYPE, val body: String): TokenBase(tokenType) {
+class Token(val tokenType: TOKEN_TYPE, val body: String) {
     override fun toString(): String {
         val xmlEscapedBody =
                 when (body) {

@@ -9,8 +9,7 @@ import kotlin.system.exitProcess
  */
 
 // module accepts a .vm file and translate to .asm (in HACK) by internally using BackEnd.VMParser and BackEnd.HACKCodeGen modules
-class VMToHACKTranslator(protected val vmFiles: ArrayList<ReadFile>, protected val exportBaseFilename: String,
-                         protected val genBootstrap: Boolean) {
+class VMToHACKTranslator(protected val vmFiles: ArrayList<ReadFile>, protected val exportBaseFilename: String) {
 
     var generated_vm_code: StringBuilder = StringBuilder()
 
@@ -93,7 +92,7 @@ fun printUsage() {
 // no bootstrapping added
 fun translateVMFile(filename: String) {
     val vmFile = ReadFile(filename)
-    val translator = VMToHACKTranslator(arrayListOf(vmFile), filename, false)
+    val translator = VMToHACKTranslator(arrayListOf(vmFile), filename)
     translator.translateAndSaveASM()
 }
 
@@ -122,7 +121,7 @@ fun translateVMFilesInDir(dirPath: String) {
     val splitName = dirPath.split("\\")
     // dir base name
     val newFileName = splitName[splitName.size - 1]
-    VMToHACKTranslator(myVMFiles, dirPath + "\\" + newFileName, false).translateAndSaveASM()
+    VMToHACKTranslator(myVMFiles, dirPath + "\\" + newFileName).translateAndSaveASM()
 }
 
 // first cmd arg at args[0] (no program name in argv[0] like in C)

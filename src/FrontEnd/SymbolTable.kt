@@ -7,10 +7,10 @@ package FrontEnd
 class Symbol(val name: String, val type: String, val kind: ID_KIND, val index: Int)
 
 class SymbolTable {
-    var staticCounter = 0
-    var fieldCounter = 0
-    var argCounter = 0
-    var varCounter = 0
+    private var staticCounter = 0
+    private var fieldCounter = 0
+    private var argCounter = 0
+    private var varCounter = 0
 
     private val symbolTableItems = hashMapOf<String, Symbol>()
 

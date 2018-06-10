@@ -4,11 +4,11 @@ package FrontEnd
  * Created by (442377900) on 18-May-18.
  */
 
-val typeTable = arrayListOf<String>("int", "char", "boolean")
+val typeTable = arrayListOf("int", "char", "boolean")
 
-class TokenParser(private val tokenParser: Tokenizer) {
+class TokenParser(tokenParser: Tokenizer) {
 
-    val tokenIter = tokenParser.iterator()
+    private val tokenIter = tokenParser.iterator()
 
     val parsedAST: ClassToken
 
@@ -87,7 +87,6 @@ class TokenParser(private val tokenParser: Tokenizer) {
         varNameList.add( varNameRule() )
 
         // use list to place elements matching (',' varName)*
-        val variableLenOptionalParams: ArrayList<TokenAST> = ArrayList()
         var nextTok = tokenIter.getNextTokOrThrowExcp()
         while (grammarMatch(nextTok,",", false)) {
             val varNameTok = tokenIter.getNextTokOrThrowExcp()
@@ -211,7 +210,6 @@ class TokenParser(private val tokenParser: Tokenizer) {
         varNameList.add( varNameRule() )
 
         // (',' varName)*
-        val variableLenOptionalParams: ArrayList<TokenAST> = ArrayList()
         var nextTok = tokenIter.getNextTokOrThrowExcp()
 
         while (grammarMatch(nextTok,",", false)) {
@@ -522,7 +520,6 @@ class TokenParser(private val tokenParser: Tokenizer) {
     private fun expressionListRule(): ArrayList<ExpressionTree> {
         val expressionList = arrayListOf<ExpressionTree>()
         var savedState = tokenIter.getCurState()
-        val expressionAST : TokenAST
         try {
             expressionList.add( expressionRule() )
         }

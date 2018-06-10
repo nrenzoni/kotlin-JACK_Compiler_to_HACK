@@ -5,8 +5,8 @@ package Misc
  */
 
 fun generateXmlTag(name: String, closingTag: Boolean = false): String {
-    if (!closingTag)
-        return "<$name>"
+    return if (!closingTag)
+        "<$name>"
     else
-        return "</$name>"
+        "</$name>"
 }

@@ -20,24 +20,24 @@ val SKIPCHARS: List<Char> = listOf(' ', '\n', '\t')
 
 
 class Tokenizer(private val file: ReadFile) : Iterable<Token> {
-    var currCharIndex: Int = 0
-    var currChar: Char = file.fileContent[0]
+    private var currCharIndex: Int = 0
+    private var currChar: Char = file.fileContent[0]
         get() {
             return file.fileContent[currCharIndex]
         }
-    var nextChar: Char? = file.fileContent[1]
+    private var nextChar: Char? = file.fileContent[1]
         get() {
             // bounds check ok for next char after current char
-            if (currCharIndex+1 < file.fileContent.length)
-                return file.fileContent[currCharIndex+1]
+            return if (currCharIndex+1 < file.fileContent.length)
+                file.fileContent[currCharIndex+1]
             else
-                return null
+                null
         }
 
     private fun isFinished() = currCharIndex >= file.fileContent.length
 
     private val _tokens: ArrayList<Token> = arrayListOf()
-    val tokens: ArrayList<Token>
+    private val tokens: ArrayList<Token>
         get() {
             if (_tokens.isEmpty())
                 parseTokens()
@@ -170,7 +170,7 @@ class Tokenizer(private val file: ReadFile) : Iterable<Token> {
 }
 
 class TokenIterator(private val tokens: ArrayList<Token>) : Iterator<Token> {
-    private var curTokI = 0;
+    private var curTokI = 0
     private val tokLen = tokens.size
 
     override fun hasNext(): Boolean = curTokI < tokLen

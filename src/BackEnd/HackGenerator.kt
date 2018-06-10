@@ -13,15 +13,14 @@ enum class MATH_OP {
 }
 
 class HACKCodeGen(protected var filename: String, protected val printDebugMsg: Boolean,
-                  val generateBootstrapCode: Boolean = false) {
+                  generateBootstrapCode: Boolean = false) {
     // classname needed for static push and pop
 
     protected val registerMapping =
-            hashMapOf<REGISTER,Int>(REGISTER.LOCAL to 1, REGISTER.ARGUMENT to 2, REGISTER.THIS to 3, REGISTER.THAT to 4,
+            hashMapOf(REGISTER.LOCAL to 1, REGISTER.ARGUMENT to 2, REGISTER.THIS to 3, REGISTER.THAT to 4,
                     REGISTER.TEMP to 5, REGISTER.STATIC to 16, REGISTER.POINTER to 3)
 
     protected var stackIndex: Int = 256
-    protected var heapIndex: Int  = 2048
     var code: StringBuilder = StringBuilder()
         private set
 
@@ -69,7 +68,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
 
             REGISTER.CONSTANT -> {
                 // put constant in D
-                appendLineToCode("@${regOffsetORConst}")
+                appendLineToCode("@$regOffsetORConst")
                 appendLineToCode("D = A")
             }
 
@@ -82,7 +81,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
                     REGISTER.THAT -> appendLineToCode("@THAT")
                 }
                 appendLineToCode("D = M")
-                appendLineToCode("@${regOffsetORConst}")
+                appendLineToCode("@$regOffsetORConst")
                 appendLineToCode("A = D + A")
                 appendLineToCode("D = M")
             }
@@ -90,7 +89,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
             REGISTER.TEMP -> {
                 //D=RAM[TEMP+X]
                 val offset = regIndex?.plus(regOffsetORConst)
-                appendLineToCode("@${offset}")
+                appendLineToCode("@$offset")
                 appendLineToCode("D = M")
             }
 
@@ -105,7 +104,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
                     throw Exception("Only Pointer 0 or 1")
                 //D=RAM[regIndex+regoffset]
                 val offset = regIndex?.plus(regOffsetORConst)
-                appendLineToCode("@${offset}")
+                appendLineToCode("@$offset")
                 appendLineToCode("D = M")
             }
         }
@@ -160,7 +159,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
                 // temp_reg + offset
                 val offset = regIndex?.plus(regOffset)
                 // *(temp_reg_ base + offset) = top of stack value
-                appendLineToCode("@${offset}")
+                appendLineToCode("@$offset")
                 appendLineToCode("M = D")
             }
 
@@ -175,9 +174,9 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
             // Group 4 (pointer 0, pointer 1)
             REGISTER.POINTER -> {
                 if(regOffset != 0 && regOffset != 1)
-                    throw Exception("Only Pointer 0 or 1 allowed, got ${regOffset}")
+                    throw Exception("Only Pointer 0 or 1 allowed, got $regOffset")
                 val offset : Int? = registerMapping[REGISTER.POINTER]?.plus(regOffset)
-                appendLineToCode("@${offset}")
+                appendLineToCode("@$offset")
 
                 //RAM[POINTER 0 OR 1] = RAM[SP-1]
                 appendLineToCode("M = D")
@@ -341,11 +340,11 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
         fun pushValueHelper(pointerName: String) {
             when(pointerName) {
                 "LCL","ARG","THIS","THAT" -> {
-                    appendLineToCode("@${pointerName}")
+                    appendLineToCode("@$pointerName")
                     appendLineToCode("D = M")
                 }
                 else                      -> {
-                    appendLineToCode("@${pointerName}")
+                    appendLineToCode("@$pointerName")
                     //put the return address in D
                     appendLineToCode("D = A")
                 }
@@ -371,7 +370,7 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
         appendLineToCode("D = M")
         // only subtract varCount from SP if != 0
         if (varCount > 0) {
-            appendLineToCode("@${varCount}")
+            appendLineToCode("@$varCount")
             appendLineToCode("D = D - A")
         }
         appendLineToCode("@5")
@@ -396,12 +395,12 @@ class HACKCodeGen(protected var filename: String, protected val printDebugMsg: B
         if (localCount < 0)
             throw Exception("localCount must be >= 0, got $localCount")
 
-        appendLineToCode("(${funcName})")
+        appendLineToCode("($funcName)")
 
         // only initialize local variables if they exist
         if (localCount > 0) {
             // D = local variable count
-            appendLineToCode("@${localCount}")
+            appendLineToCode("@$localCount")
             appendLineToCode("D = A")
             // jump over initialization of locals if localCount == 0
             appendLineToCode("@${funcName}_loopEnd")

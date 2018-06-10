@@ -13,11 +13,15 @@ interface MyDirFile {
     val name: String
 }
 
-class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
+class MyDirectory(private val dirName: String): MyDirFile, Iterable<MyDirFile> {
 
     init {
-        if(!Files.isDirectory(Paths.get(dirName)))
-            throw Exception("not a directory: \"$dirName\"")
+        try {
+            Files.isDirectory(Paths.get(dirName))
+        }
+        catch (e: Exception) {
+            throw Exception("not a valid directory: \"$dirName\"")
+        }
     }
 
     override val name = dirName
@@ -31,7 +35,7 @@ class MyDirectory(val dirName: String): MyDirFile, Iterable<MyDirFile> {
 private class MyDirectoryIterator(val dirName: String): Iterator<MyDirFile> {
     val dirContent = File(dirName).walk().maxDepth(1)
     // start curIndex at 1 since index 0 is directory itself
-    var curIndex = 1;
+    var curIndex = 1
     val maxIndex = dirContent.count() - 1
 
     override fun next(): MyDirFile {

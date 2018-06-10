@@ -7,12 +7,12 @@ package FrontEnd
 // output to vm language
 // assume classToken is well-formed
 // one CodeGeneration object per file (each TokenParser contains one TokenAST)
-class CodeGeneration(private val tokenParser: TokenParser) {
+class CodeGeneration(tokenParser: TokenParser) {
 
-    val classToken = tokenParser.parsedAST
-    val className = classToken.className
+    private val classToken = tokenParser.parsedAST
+    private val className = classToken.className
 
-    val outputVMCode = StringBuilder()
+    private val outputVMCode = StringBuilder()
 
     override fun toString(): String {
         return outputVMCode.toString()
@@ -50,6 +50,8 @@ class CodeGeneration(private val tokenParser: TokenParser) {
         }
         for (subroutineDec in classToken.subroutineDecList) {
             methodSymbolTable.clear()
+            ifCounter = 0
+            whileCounter = 0
             functionRule(subroutineDec, classToken.className)
         }
     }
@@ -149,7 +151,6 @@ class CodeGeneration(private val tokenParser: TokenParser) {
         }
         if (ifStatement.elseStatementsList != null) {
             // only want to increment ifCounter if endLabel is actually used
-            ifCounter++
             appendCode("goto IF_END$endLabel")
         }
         appendCode("label IF_FALSE$curLabel")

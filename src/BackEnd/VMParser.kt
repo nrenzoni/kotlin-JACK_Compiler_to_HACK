@@ -12,7 +12,7 @@ enum class VM_Command_Type {
 
 // module for opening and parsing file line by line. does not run by itself, line advancement is called from translator
 // module
-class VMParser(val filename: String) {
+class VMParser(filename: String) {
 
     private val inputfile: ReadFile = ReadFile(filename)
     private var currentLine: Int = 1
@@ -44,7 +44,7 @@ class VMParser(val filename: String) {
                 VM_Command_Type.C_CALL
             currentCommand.contains(Regex("^//")) || currentCommand.isBlank()
             -> VM_Command_Type.COMMENT
-            else -> throw Exception("parsing error on '${currentCommand}'")
+            else -> throw Exception("parsing error on '$currentCommand'")
         }
     }
 
@@ -62,7 +62,7 @@ class VMParser(val filename: String) {
                 return op
             }
         }
-        throw Exception("no matching enum found in '${currentCommand}'")
+        throw Exception("no matching enum found in '$currentCommand'")
     }
 
     fun getRegisterFromArg1(): REGISTER {
@@ -72,6 +72,6 @@ class VMParser(val filename: String) {
                 return reg
             }
         }
-        throw Exception("no matching register found in arg1 of '${currentCommand}'")
+        throw Exception("no matching register found in arg1 of '$currentCommand'")
     }
 }
